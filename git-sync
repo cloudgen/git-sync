@@ -1012,12 +1012,9 @@ maybe_install_v4() {
 
     if [ -t 0 ] && [ -t 1 ]; then
         # Use single source of truth for the yes/no prompt
-        if prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
-            pass
-        else
+        if ! prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
             msg "Installation skipped by user."
             return 0 
-            ;;
         fi
     else
         msg "Non-interactive mode detected → installing automatically..."
