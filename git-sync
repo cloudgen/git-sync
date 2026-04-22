@@ -6,8 +6,8 @@
 # Scans direct subfolders for Git repos (.git), resets --hard HEAD, pulls origin main.
 # Portable, self-installing — works via curl | sh on Linux/macOS/Alpine/BSD.
 #
-# One-liner install (user): curl -fsSL https://raw.githubusercontent.com/USER/git-sync/main/git-sync | sh
-# Root/system-wide:      curl -fsSL https://raw.githubusercontent.com/USER/git-sync/main/git-sync | sudo sh
+# One-liner install (user): curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sh
+# Root/system-wide:      curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sudo sh
 #
 # Usage: git-sync [START_DIR]  (defaults to .)
 #
@@ -1255,8 +1255,24 @@ git_sync_main_loop() {
 #   any argument parsing.
 # =============================================================================
 main_git_sync() {
-    # AUTO-INSTALL FIRST (curl | sh friendly) [[doc_1]][[doc_2]]
-    [ $# -eq 0 ] && ! is_installed && maybe_install_v3 
+    # === AUTO-INSTALL FOR ONE-LINER (curl | sh) ===
+    # This block MUST stay at the very top, before any argument parsing.
+    # It ensures that `curl ... | sh` actually installs the tool instead of
+    # just showing help and exiting with "command not found".
+    #
+    # perform_self_install_v2 / maybe_install_v3 is important here EVEN THOUGH
+    # a subcommand may be present later, because the main real-world usage
+    # of this script is the one-liner installer. Installing first is the
+    # expected behavior in that context.
+    if ! is_installed && [ $# -eq 0 ]; then
+        if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ]; then
+            # Non-interactive / JSON mode → install silently
+            perform_self_install_v2
+        else
+            maybe_install_v3
+        fi
+        exit 0
+    fi
 
     # === Phase 1: Parse all arguments (fixed start command) ===
     local cmd="$1";
