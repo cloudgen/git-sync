@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# git-sync – version 1.0.2
+# git-sync – version 1.0.3
 # =============================================================================
 #
 # Scans direct subfolders for Git repos (.git), resets --hard HEAD, pulls origin main.
@@ -17,7 +17,7 @@
 
 # ----------------------------- Project Constants -----------------------------
 APP_NAME="git-sync"            # HARDCODED for curl | sh
-VERSION="1.0.2"
+VERSION="1.0.3"
 DESCRIPTION="Git reset+pull for subfolder repos"
 REPO_USER="cloudgen"               
 REPO_NAME="git-sync"
@@ -1012,7 +1012,9 @@ maybe_install_v4() {
 
     if [ -t 0 ] && [ -t 1 ]; then
         # Use single source of truth for the yes/no prompt
-        if ! prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
+        if prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
+            :
+        else
             msg "Installation skipped by user."
             return 0 
         fi
