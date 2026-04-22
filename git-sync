@@ -971,7 +971,7 @@ prompt_yes_no() {
 }
 
 # =============================================================================
-# maybe_install_v3() - Friendly installation prompt
+# maybe_install_v4() - Friendly installation prompt
 # =============================================================================
 #
 # Respects both --quiet and --json modes.
@@ -984,7 +984,7 @@ prompt_yes_no() {
 # Last aligned: 20 April 2026
 # =============================================================================
 
-maybe_install_v3() {
+maybe_install_v4() {
     if is_installed && [ "${FORCE_REINSTALL}" -eq 0 ]; then
         return 0
     fi
@@ -1008,15 +1008,41 @@ maybe_install_v3() {
     fi
     empty_line
 
-    # Use single source of truth for the yes/no prompt
-    if prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
+    local should_install=false
+
+    if [ -t 0 ] && [ -t 1 ]; then
+        # Use single source of truth for the yes/no prompt
+        if prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
+            pass
+        else
+            msg "Installation skipped by user."
+            return 0 
+            ;;
+        fi
+    else
+        msg "Non-interactive mode detected → installing automatically..."
+        should_install=true
+    fi
+
+    if [ "$should_install" = "true" ]; then
         perform_self_install_v2
         exit 0
-    else
-        msg "Installation skipped by user."
-        return 0
     fi
 }
+
+# =============================================================================
+# maybe_install_v2() - Friendly installation prompt
+# =============================================================================
+#
+# Respects both --quiet and --json modes.
+# In JSON mode we skip the interactive prompt entirely.
+#
+# !!! DO NOT MODIFY OR SIMPLIFY !!!
+# Designed to be reusable in other projects.
+# =============================================================================
+
+maybe_install_v2() {
+
 
 # =============================================================================
 # show_about_git_sync() - Display diagnostic information about the current environment
@@ -1231,7 +1257,7 @@ git_sync_main_loop() {
 #   countdown sync 
 #
 # IMPORTANT DESIGN DECISION:
-#   The auto-install logic (`maybe_install_v3` / `perform_self_install_v2`) is triggered
+#   The auto-install logic (`maybe_install_v4` / `perform_self_install_v2`) is triggered
 #   when the script is run with ZERO arguments via `curl | sh`.
 #
 #   This is INTENTIONAL and CRITICAL for the one-liner installer to work.
@@ -1260,7 +1286,7 @@ main_git_sync() {
     # It ensures that `curl ... | sh` actually installs the tool instead of
     # just showing help and exiting with "command not found".
     #
-    # perform_self_install_v2 / maybe_install_v3 is important here EVEN THOUGH
+    # perform_self_install_v2 / maybe_install_v4 is important here EVEN THOUGH
     # a subcommand may be present later, because the main real-world usage
     # of this script is the one-liner installer. Installing first is the
     # expected behavior in that context.
@@ -1269,7 +1295,7 @@ main_git_sync() {
             # Non-interactive / JSON mode → install silently
             perform_self_install_v2
         else
-            maybe_install_v3
+            maybe_install_v4
         fi
         exit 0
     fi
