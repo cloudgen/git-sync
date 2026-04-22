@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# git-sync – version 1.0.4
+# git-sync – version 1.0.5
 # =============================================================================
 #
 # Scans direct subfolders for Git repos (.git), resets --hard HEAD, pulls origin main.
@@ -17,7 +17,7 @@
 
 # ----------------------------- Project Constants -----------------------------
 APP_NAME="git-sync"            # HARDCODED for curl | sh
-VERSION="1.0.4"
+VERSION="1.0.5"
 DESCRIPTION="Git reset+pull for subfolder repos"
 REPO_USER="cloudgen"               
 REPO_NAME="git-sync"
@@ -111,33 +111,11 @@ double_line() { output_text plain "=============================================
 # =============================================================================
 
 is_installed() {
-    : "${GLOBAL_BIN:=/usr/local/bin}"
-    : "${USER_BIN:=${HOME}/.local/bin}"
-    : "${INSTALL_PATH:=${GLOBAL_BIN}/${APP_NAME}}"
-
-    if [ "$(id -u)" -eq 0 ]; then
-        IS_ROOT=1
-        INSTALL_PATH="${GLOBAL_BIN}/${APP_NAME}"
-    else
-        IS_ROOT=0
-        INSTALL_PATH="${USER_BIN}/${APP_NAME}"
-    fi
-
-    # Support explicit parameters or force flags
-    if [ "${1:-}" = "--user" ] || [ "${FORCE_USER:-0}" -eq 1 ]; then
-        [ -f "${USER_BIN}/${APP_NAME}" ] && [ -x "${USER_BIN}/${APP_NAME}" ] && return 0
+    version=$(get_installed_version_v1)
+    if [ "${version}" = "not installed"  ]; then 
         return 1
-    elif [ "${1:-}" = "--global" ] || [ "${FORCE_GLOBAL:-0}" -eq 1 ]; then
-        [ -f "${GLOBAL_BIN}/${APP_NAME}" ] && [ -x "${GLOBAL_BIN}/${APP_NAME}" ] && return 0
-        return 1
-    fi
-
-    # Main logic
-    if [ "$IS_ROOT" -eq 1 ]; then
-        [ -f "${INSTALL_PATH}" ] && [ -x "${INSTALL_PATH}" ]
     else
-        { [ -f "${GLOBAL_BIN}/${APP_NAME}" ] && [ -x "${GLOBAL_BIN}/${APP_NAME}" ]; } ||
-        { [ -f "${USER_BIN}/${APP_NAME}"   ] && [ -x "${USER_BIN}/${APP_NAME}"   ]; }
+        return 0
     fi
 }
 
@@ -981,19 +959,21 @@ prompt_yes_no() {
 # !!! DO NOT MODIFY OR SIMPLIFY !!!
 # Designed to be reusable in other projects.
 #
-# Last aligned: 20 April 2026
+# Last aligned: 22 April 2026
 # =============================================================================
 
 maybe_install_v4() {
+    : "${QUIET:=0}"
+    : "${JSON:=0}"
+    : "${FORCE_REINSTALL:=0}"
+    
     if is_installed && [ "${FORCE_REINSTALL}" -eq 0 ]; then
         return 0
     fi
-
     # In JSON mode or quiet mode we do not show interactive prompts
     if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ]; then
         return 0
     fi
-
     empty_line
     msg "Note: '${APP_NAME}' is not installed yet."
     msg "     Version: ${VERSION}"
@@ -1277,6 +1257,7 @@ main_git_sync() {
     # a subcommand may be present later, because the main real-world usage
     # of this script is the one-liner installer. Installing first is the
     # expected behavior in that context.
+
     if ! is_installed && [ $# -eq 0 ]; then
         if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ]; then
             # Non-interactive / JSON mode → install silently
@@ -1284,7 +1265,6 @@ main_git_sync() {
         else
             maybe_install_v4
         fi
-        exit 0
     fi
 
     # === Phase 1: Parse all arguments (fixed start command) ===
