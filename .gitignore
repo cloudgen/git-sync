@@ -1,0 +1,38 @@
+cat > .gitignore << 'EOF'
+# =============================================================================
+# .gitignore - git-sync + ShellParser
+# =============================================================================
+
+# ShellParser temporary / generated directories (MUST be ignored)
+target/
+
+# Backup files created by ShellParser replace command
+git-sync.20[0-9][0-9][0-9][0-9][0-9][0-9]-*
+
+# Common editor / IDE files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+.DS_Store
+
+# Python / pip cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+ENV/
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+EOF

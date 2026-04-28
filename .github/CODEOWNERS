@@ -1,0 +1,24 @@
+# =============================================================================
+# CODEOWNERS - git-sync Project
+# =============================================================================
+
+# Default owner for the entire repository
+*     @cloudgen
+
+# Critical files - require careful review
+README.md                  @cloudgen
+CHANGELOG.md               @cloudgen
+git-sync                   @cloudgen
+ShellParser.skill          @cloudgen
+SECURITY.md                @cloudgen
+
+# ShellParser infrastructure
+target/                    @cloudgen
+.gitignore                 @cloudgen
+
+# Build / Development files
+build.sh                   @cloudgen
+*.skill                    @cloudgen
+
+# Components (modular source of truth)
+target/components/         @cloudgen

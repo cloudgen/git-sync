@@ -1,23 +1,22 @@
 #!/bin/sh
 # =============================================================================
-# git-sync – version 1.0.5
+# git-sync – version 1.0.7
 # =============================================================================
 #
 # Scans direct subfolders for Git repos (.git), resets --hard HEAD, pulls origin main.
-# Portable, self-installing — works via curl | sh on Linux/macOS/Alpine/BSD.
+# Portable, self-installing — works via curl | sh.
 #
-# One-liner install (user): curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sh
-# Root/system-wide:      curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sudo sh
+# One-liner: curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sh
 #
-# Usage: git-sync [START_DIR]  (defaults to .)
+# Now structured for easier maintenance with ShellParser[](https://github.com/cloudgen/ShellParser)
+# Core remains single-file for curl | sh compatibility.
 #
-# Adapted from countdown CIAO base — defensive/portable/no-deps .
 # See [CIAO](https://github.com/cloudgen/ciao)
 # =============================================================================
 
 # ----------------------------- Project Constants -----------------------------
 APP_NAME="git-sync"            # HARDCODED for curl | sh
-VERSION="1.0.5"
+VERSION="1.0.7"
 DESCRIPTION="Git reset+pull for subfolder repos"
 REPO_USER="cloudgen"               
 REPO_NAME="git-sync"
@@ -50,9 +49,43 @@ fi
 
 [ -t 0 ] && [ -t 1 ] && TTY=1
 USERNAME="$(id -un 2>/dev/null || echo unknown)"
+# =============================================================================
+# double_line()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - double_line() → visual separators
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+double_line() { output_text plain "=================================================="; }
+    success "✅ Completed: $repo_dir"
 
 # =============================================================================
 # output_text() - SINGLE SOURCE OF TRUTH FOR ALL OUTPUT
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Centralized output handler for all human-readable messages.
+# Respects --quiet, --json, and TTY detection for colors.
+# All user-facing text (info, success, warn, error, etc.) MUST go through this
+# function to maintain consistency and JSON-mode compatibility.
+#
+# INTENTIONAL DESIGN:
+# This is the single source of truth for all terminal output in the project.
+# Never use raw echo/printf for user messages elsewhere.
+#
+# Last reviewed: 28 April 2026
 # =============================================================================
 output_text() {
     local level="$1" msg="$2"
@@ -73,6 +106,21 @@ output_text() {
     esac
 }
 
+# =============================================================================
+# output_json() - JSON output helper
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Emits clean, machine-readable JSON when --json flag is used.
+# Used by all command modes that support structured output.
+#
+# INTENTIONAL DESIGN:
+# Keeps JSON output minimal, consistent, and escaped safely.
+# Must be used together with output_json_error() for errors.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
 output_json() {
     [ "${JSON}" -eq 0 ] && return 0
     local type="$1" message="$2"; shift 2
@@ -81,18 +129,169 @@ output_json() {
     [ -n "$message" ] && printf ',"message":"%s"' "$(printf '%s' "$message" | sed 's/"/\\"/g')"
     while [ $# -ge 2 ]; do printf ',"%s":"%s"' "$1" "$2"; shift 2; done
     printf '}\n'
+
 }
+
+# =============================================================================
+# output_json_error() - JSON error output
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Standardized way to return errors in JSON mode with error code.
+# Always called via die() in JSON contexts.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 
 output_json_error() { output_json "error" "$1" "code" "${2:-unknown}"; }
 
+# =============================================================================
+# msg_n()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - msg_n()     → plain text without newline (for prompts)
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 msg_n() { output_text plain_n "$*"; }
+
+# =============================================================================
+# die()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - die()       → error + exit(1)  (also triggers JSON error)
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 die() { output_json_error "$*" >&2; output_text error "$*"; exit 1; }
+
+# =============================================================================
+# info()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - info()      → green [INFO]
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 info() { output_text info "$*"; }
+
+# =============================================================================
+# success()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - success()   → green [OK]
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 success() { output_text success "$*"; }
+
+# =============================================================================
+# warn()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - warn()      → yellow [WARN]
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 warn() { output_text warn "$*"; }
+
+# =============================================================================
+# msg()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - msg()       → plain text
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 msg() { output_text plain "$*"; }
+
+# =============================================================================
+# empty_line()
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Convenience wrappers around output_text() for common message types.
+# 
+# - empty_line() → visual separators
+#
+# CRITICAL RULE:
+# These are the ONLY allowed ways to produce visible output (except inside
+# protected low-level functions). All output must respect --quiet and --json.
+#
+# INTENTIONAL DESIGN:
+# Short, readable calls throughout the script while keeping all real logic
+# inside output_text() as Single Source of Truth.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 empty_line() { output_text plain ""; }
-double_line() { output_text plain "=================================================="; }
+
 
 # =============================================================================
 # is_installed() - Robust installation check
@@ -111,7 +310,7 @@ double_line() { output_text plain "=============================================
 # =============================================================================
 
 is_installed() {
-    version=$(get_installed_version_v1)
+    version=$(get_installed_version)
     if [ "${version}" = "not installed"  ]; then 
         return 1
     else
@@ -120,7 +319,7 @@ is_installed() {
 }
 
 # =============================================================================
-# get_installed_version_v1() - Extract version from installed binary
+# get_installed_version() - Extract version from installed binary
 # =============================================================================
 #
 # GENERAL PURPOSE:
@@ -136,7 +335,7 @@ is_installed() {
 # Knowing the exact installed version is not optional — it is the foundation
 # of safe self-update and version-check logic.
 #
-# Without a reliable get_installed_version_v1(), self-update cannot properly
+# Without a reliable get_installed_version(), self-update cannot properly
 # compare local version against remote, leading to:
 # - Unnecessary re-downloads
 # - Failed updates
@@ -156,10 +355,10 @@ is_installed() {
 # replacing it. Respecting version awareness is a core part of CIAO
 # Caution and Anti-fragility.
 #
-# Last reviewed: 20 April 2026
+# Last reviewed: 28 April 2026
 # =============================================================================
 
-get_installed_version_v1() {
+get_installed_version() {
     # --- Safe Variable Defaults ----
     # Defensive defaults - never assume globals are set
     : "${APP_NAME:=app}"
@@ -182,12 +381,12 @@ get_installed_version_v1() {
 }
 
 # =============================================================================
-# version_gt_v1() - Pure POSIX semantic version comparison
+# version_gt() - Pure POSIX semantic version comparison
 # =============================================================================
 #
 # GENERAL PURPOSE:
 # Returns 0 (true) if ver1 > ver2, otherwise returns 1 (false).
-# Used by version_check_v1() and self_update() to prevent incorrect downgrades.
+# Used by version_check() and self_update() to prevent incorrect downgrades.
 #
 # Safe Variable Defaults
 # Respects CIAO zero-dependency rule — no external tools (no sort -V).
@@ -214,10 +413,10 @@ get_installed_version_v1() {
 #
 # This is part of the battle-field-tested defensive layer.
 #
-# Last reviewed & polished: 14 April 2026
+# Last reviewed & polished: 28 April 2026
 # =============================================================================
 
-version_gt_v1() {
+version_gt() {
     # --- Safe Variable Defaults ----
     v1=$1
     v2=$2
@@ -253,7 +452,7 @@ version_gt_v1() {
 }
 
 # =============================================================================
-# version_check_v1() - Compare local vs remote version + suggest install
+# version_check() - Compare local vs remote version + suggest install
 # =============================================================================
 #
 # GENERAL PURPOSE:
@@ -264,11 +463,11 @@ version_gt_v1() {
 #
 # CRITICAL WARNING - VERSION CHECK IS THE SAFETY GATE FOR SELF-UPDATE:
 # This function is the core safety mechanism that prevents blind or
-# unnecessary updates. It relies on get_installed_version_v1() to know the
+# unnecessary updates. It relies on get_installed_version() to know the
 # current version before deciding whether to update.
 #
 # CRITICAL DEFENSIVE IMPROVEMENT (14 April 2026):
-# Now uses version_gt_v1() for proper semantic comparison to prevent
+# Now uses version_gt() for proper semantic comparison to prevent
 # downgrade when local version is newer (development builds).
 #
 # !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
@@ -280,10 +479,10 @@ version_gt_v1() {
 # This function is battle-field tested and must continue to respect
 # --quiet, --json, and proper newer-version detection.
 #
-# Last reviewed & polished: 14 April 2026
+# Last reviewed & polished: 28 April 2026
 # =============================================================================
 
-version_check_v1() {
+version_check() {
     # --- Safe Variable Defaults ----
     # Defensive defaults - never assume globals are set
     : "${APP_NAME:=app}"
@@ -304,14 +503,14 @@ version_check_v1() {
     fi
 
     local local_version
-    local_version=$(get_installed_version_v1)
+    local_version=$(get_installed_version)
 
     if [ "${JSON}" -eq 1 ]; then
-        output_json "version_check_v1" \
+        output_json "version_check" \
             "local_version" "$local_version" \
             "remote_version" "$REMOTE_VERSION" \
             "is_latest" "$( [ "$local_version" = "$REMOTE_VERSION" ] && echo "true" || \
-                           (version_gt_v1 "$local_version" "$REMOTE_VERSION" && echo "true" || echo "false") )"
+                           (version_gt "$local_version" "$REMOTE_VERSION" && echo "true" || echo "false") )"
     else
         if [ "${QUIET}" -eq 0 ]; then
             info "Checking latest version of ${APP_NAME}..."
@@ -321,7 +520,7 @@ version_check_v1() {
 
             if [ "$local_version" = "$REMOTE_VERSION" ]; then
                 success "You are running the latest version."
-            elif version_gt_v1 "$local_version" "$REMOTE_VERSION"; then
+            elif version_gt "$local_version" "$REMOTE_VERSION"; then
                 success "You are running a newer development version (${local_version} > ${REMOTE_VERSION})"
             elif [ "$local_version" = "not installed" ]; then
                 warn "${APP_NAME} is not installed yet."
@@ -333,7 +532,7 @@ version_check_v1() {
 }
 
 # =============================================================================
-# self_update_v3() - Perform self-update to latest version
+# self_update() - Perform self-update to latest version
 # =============================================================================
 #
 # GENERAL PURPOSE:
@@ -344,7 +543,7 @@ version_check_v1() {
 # Designed to be reusable in other projects.
 # =============================================================================
 
-self_update_v3() {
+self_update() {
     if [ "${JSON}" -eq 0 ]; then
         info "Starting self-update of ${APP_NAME}..."
     fi
@@ -362,7 +561,7 @@ self_update_v3() {
     fi
 
     local local_version
-    local_version=$(get_installed_version_v1)
+    local_version=$(get_installed_version)
 
     if [ "$local_version" = "$REMOTE_VERSION" ] && [ "${FORCE_REINSTALL}" -eq 0 ]; then
         if [ "${JSON}" -eq 1 ]; then
@@ -378,52 +577,35 @@ self_update_v3() {
     fi
 
     FORCE_REINSTALL=1
-    perform_self_install_v2
+    perform_self_install
 }
 
 # =============================================================================
-# self_uninstall_v2() - Remove ${APP_NAME} from the system
+# self_uninstall() - Main orchestrator for uninstallation
 # =============================================================================
 #
 # GENERAL PURPOSE:
-# Removes the installed ${APP_NAME} binary (global or user) and cleans up the PATH
-# entry added by the installer in shell config files.
+# Removes the installed git-sync binary (global or user) and optionally
+# cleans up PATH entries.
 #
 # Respects --force, --quiet, and --json.
 # Works for both root and user installations.
 #
-# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
-# Confirmation now uses prompt_yes_no() as SINGLE SOURCE OF TRUTH.
-# Designed to be robust and reversible where possible.
+# DESIGN:
+# Split into three clear steps for readability while preserving original
+# behavior and safety.
 #
-# Last aligned: 20 April 2026
+# Last reviewed: 28 April 2026
 # =============================================================================
 
-self_uninstall_v2() {
+self_uninstall() {
     if [ "${JSON}" -eq 0 ]; then
         info "Starting self-uninstall of ${APP_NAME}..."
     fi
 
-    local bin_path=""
-    local removed=0
-
-    # Determine which installation to remove
-    if [ "$(id -u)" -eq 0 ] || [ "${FORCE_GLOBAL:-0}" -eq 1 ]; then
-        # Global (root) uninstall
-        if [ -f "${GLOBAL_BIN}/${APP_NAME}" ]; then
-            bin_path="${GLOBAL_BIN}/${APP_NAME}"
-        fi
-    else
-        # User uninstall - prefer local, fallback to global if present
-        if [ -f "${USER_BIN}/${APP_NAME}" ]; then
-            bin_path="${USER_BIN}/${APP_NAME}"
-        elif [ -f "${GLOBAL_BIN}/${APP_NAME}" ]; then
-            bin_path="${GLOBAL_BIN}/${APP_NAME}"
-            if [ "${JSON}" -eq 0 ]; then
-                warn "Global installation found. Removing it (you may need sudo next time)."
-            fi
-        fi
-    fi
+    # Step 1: Determine which installation to remove
+    local bin_path
+    bin_path=$(self_uninstall_determine_bin)
 
     if [ -z "$bin_path" ]; then
         if [ "${JSON}" -eq 1 ]; then
@@ -438,24 +620,93 @@ self_uninstall_v2() {
         return 0
     fi
 
+    # Step 2: Confirm (if needed) and perform removal
+    if ! self_uninstall_confirm_and_remove "$bin_path"; then
+        return 1
+    fi
+
+    # Step 3: Clean up PATH entries (user installs only)
+    self_uninstall_cleanup_path
+
+    if [ "${JSON}" -eq 1 ]; then
+        output_json "success" "message" "${APP_NAME} has been uninstalled."
+    else
+        success "${APP_NAME} has been uninstalled."
+    fi
+    return 0
+}
+
+# =============================================================================
+# self_uninstall_determine_bin() - Step 1: Determine which installation to remove
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Decides the correct binary path to remove based on current user,
+# FORCE_GLOBAL, and actual file presence.
+#
+# Returns the full path to remove, or empty string if nothing to uninstall.
+#
+# CRITICAL: Respects root vs user logic exactly as before.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+self_uninstall_determine_bin() {
+    local bin_path=""
+
+    if [ "$(id -u)" -eq 0 ] || [ "${FORCE_GLOBAL:-0}" -eq 1 ]; then
+        # Global (root) uninstall
+        if [ -f "${GLOBAL_BIN}/${APP_NAME}" ]; then
+            bin_path="${GLOBAL_BIN}/${APP_NAME}"
+        fi
+    else
+        # User uninstall - prefer local, fallback to global
+        if [ -f "${USER_BIN}/${APP_NAME}" ]; then
+            bin_path="${USER_BIN}/${APP_NAME}"
+        elif [ -f "${GLOBAL_BIN}/${APP_NAME}" ]; then
+            bin_path="${GLOBAL_BIN}/${APP_NAME}"
+            if [ "${JSON}" -eq 0 ]; then
+                warn "Global installation found. Removing it (you may need sudo next time)."
+            fi
+        fi
+    fi
+
+    printf '%s' "$bin_path"
+}
+
+# =============================================================================
+# self_uninstall_confirm_and_remove() - Step 2: Confirm and remove binary
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Handles confirmation (unless --force) and actual file removal.
+# Uses prompt_yes_no() as SINGLE SOURCE OF TRUTH.
+#
+# Returns 0 on success, non-zero on failure/cancel.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+self_uninstall_confirm_and_remove() {
+    local bin_path="$1"
+
     # Confirm before removal (unless --force or non-interactive)
-    # Uses prompt_yes_no() as SINGLE SOURCE OF TRUTH
     if [ "${FORCE_REINSTALL:-0}" -eq 0 ]; then
         if prompt_yes_no "This will remove: ${bin_path}"; then
-            :  # user confirmed yes → continue
+            :  # confirmed
         else
             if [ "${JSON}" -eq 1 ]; then
                 output_json "success" "message" "Uninstall cancelled by user."
             else
                 msg "Uninstall cancelled by user."
             fi
-            return 0 
+            return 1
         fi
     fi
 
     # Remove the binary
     if rm -f "$bin_path" 2>/dev/null; then
-        removed=1
+        return 0
     else
         if [ "${JSON}" -eq 1 ]; then
             output_json_error "Failed to remove ${bin_path} (permission denied?)" "permission_denied"
@@ -464,31 +715,66 @@ self_uninstall_v2() {
         fi
         return 1
     fi
+}
 
-    # Optional: clean up PATH entry in shell configs (user only)
-    if [ "$(id -u)" -ne 0 ] && [ "$removed" -eq 1 ]; then
-        local cleaned=0
-        for config in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.config/fish/config.fish"; do
-            if [ -f "$config" ]; then
-                if sed -i.bak '/# Added by .* installer/d' "$config" 2>/dev/null && \
-                sed -i.bak '/\.local\/bin:.*PATH/d' "$config" 2>/dev/null; then
-                    cleaned=1
-                fi
-                rm -f "${config}.bak" 2>/dev/null || true
+# =============================================================================
+# self_uninstall_cleanup_path() - Step 3: Clean up PATH entries
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Removes installer-added PATH entries from shell config files
+# (bash, zsh, fish) for user-level installations **only if** ~/.local/bin
+# is empty or does not exist.
+#
+# SAFETY RULE (new):
+# If ~/.local/bin still contains other files (other tools, scripts, etc.),
+# we deliberately keep the PATH entry to avoid breaking the user's environment.
+# This follows CIAO-Lite "Caution" and "Anti-fragile" principles.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+self_uninstall_cleanup_path() {
+    # Only attempt cleanup for non-root installs
+    if [ "$(id -u)" -eq 0 ]; then
+        return 0
+    fi
+
+    local bin_dir="${HOME}/.local/bin"
+    local should_clean_path=1
+
+    # === SAFETY CHECK: Only clean PATH if ~/.local/bin is empty ===
+    if [ -d "$bin_dir" ]; then
+        if [ -n "$(ls -A "$bin_dir" 2>/dev/null)" ]; then
+            # Directory exists and is not empty → keep PATH for other tools
+            should_clean_path=0
+            if [ "${JSON}" -eq 0 ]; then
+                warn "Keeping ~/.local/bin in PATH because it still contains files."
             fi
-        done
-        if [ "$cleaned" -eq 1 ] && [ "${JSON}" -eq 0 ]; then
-            msg "→ Cleaned ${APP_NAME} PATH entries from shell config files"
-            msg "→ You may want to restart your terminal"
         fi
     fi
 
-    if [ "${JSON}" -eq 1 ]; then
-        output_json "success" "message" "${APP_NAME} has been uninstalled."
-    else
-        success "${APP_NAME} has been uninstalled."
+    if [ "$should_clean_path" -eq 0 ]; then
+        return 0
     fi
-    return 0
+
+    # Directory is empty or missing → safe to remove our PATH entries
+    local cleaned=0
+
+    for config in "${HOME}/.bashrc" "${HOME}/.zshrc" "${HOME}/.config/fish/config.fish"; do
+        if [ -f "$config" ]; then
+            if sed -i.bak '/# Added by .* installer/d' "$config" 2>/dev/null && \
+               sed -i.bak '/\.local\/bin:.*PATH/d' "$config" 2>/dev/null; then
+                cleaned=1
+            fi
+            rm -f "${config}.bak" 2>/dev/null || true
+        fi
+    done
+
+    if [ "$cleaned" -eq 1 ] && [ "${JSON}" -eq 0 ]; then
+        msg "→ Cleaned ${APP_NAME} PATH entries from shell config files"
+        msg "→ You may want to restart your terminal"
+    fi
 }
 
 # =============================================================================
@@ -511,15 +797,16 @@ in_path() {
 }
 
 # =============================================================================
-# add_to_shell_path() - Multi-shell PATH support (bash + zsh + fish)
+# add_to_shell_path() - Main orchestrator: Add ~/.local/bin to shell PATHs
 # =============================================================================
 #
 # GENERAL PURPOSE:
-# Adds ~/.local/bin to the user's shell configuration for bash, zsh, and fish.
-# Works even if the user is currently using a different shell.
+# Adds ~/.local/bin to bash, zsh, and fish configuration files if not already
+# present. Acts as a thin orchestrator after splitting the long function.
 #
-# !!! DO NOT MODIFY OR SIMPLIFY !!!
-# Designed to be reusable in other projects.
+# Respects --json mode (silent in JSON).
+#
+# Last reviewed: 28 April 2026
 # =============================================================================
 
 add_to_shell_path() {
@@ -527,58 +814,28 @@ add_to_shell_path() {
     local shell_config="N/A"
 
     # Bash
-    local bashrc="${HOME}/.bashrc"
-    if [ -f "$bashrc" ]; then
-        if [ "$shell_config" = "N/A" ]; then
-            shell_config="${bashrc}"
-        else
-            shell_config="${shell_config} ${bashrc}"
-        fi
-        if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$bashrc" 2>/dev/null; then
-            printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$bashrc"
-            printf 'export PATH="$HOME/.local/bin:$PATH"\n' >> "$bashrc"
-            added=1
-            if [ "${JSON}" -eq 0 ]; then
-                msg "→ Added ~/.local/bin to PATH for bash"
-            fi
-        fi
+    if add_to_bashrc; then
+        added=1
+        shell_config="${HOME}/.bashrc"
     fi
 
     # Zsh
-    local zshrc="${HOME}/.zshrc"
-    if [ -f "$zshrc" ]; then
+    if add_to_zshrc; then
+        added=1
         if [ "$shell_config" = "N/A" ]; then
-            shell_config="${zshrc}"
+            shell_config="${HOME}/.zshrc"
         else
-            shell_config="${shell_config} ${zshrc}"
-        fi
-        if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$zshrc" 2>/dev/null; then
-            printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$zshrc"
-            printf 'export PATH="$HOME/.local/bin:$PATH"\n' >> "$zshrc"
-            added=1
-            if [ "${JSON}" -eq 0 ]; then
-                msg "→ Added ~/.local/bin to PATH for zsh"
-            fi
+            shell_config="${shell_config} ${HOME}/.zshrc"
         fi
     fi
 
     # Fish
-    local fish_config="${HOME}/.config/fish/config.fish"
-    if [ -d "${HOME}/.config/fish" ] || mkdir -p "${HOME}/.config/fish" 2>/dev/null; then
+    if add_to_fish_config; then
+        added=1
         if [ "$shell_config" = "N/A" ]; then
-            shell_config="${fish_config}"
+            shell_config="${HOME}/.config/fish/config.fish"
         else
-            shell_config="${shell_config} ${fish_config}"
-        fi
-        if [ -f "$fish_config" ] && grep -qF 'set -gx PATH $HOME/.local/bin $PATH' "$fish_config" 2>/dev/null; then
-            : # already present
-        else
-            printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$fish_config"
-            printf 'set -gx PATH $HOME/.local/bin $PATH\n' >> "$fish_config"
-            added=1
-            if [ "${JSON}" -eq 0 ]; then
-                msg "→ Added ~/.local/bin to PATH for fish shell"
-            fi
+            shell_config="${shell_config} ${HOME}/.config/fish/config.fish"
         fi
     fi
 
@@ -588,12 +845,104 @@ add_to_shell_path() {
 }
 
 # =============================================================================
+# add_to_bashrc() - Add ~/.local/bin to ~/.bashrc
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Appends the PATH export to ~/.bashrc only if not already present.
+#
+# Returns 0 if added (or was already present), 1 if file missing or failed.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+add_to_bashrc() {
+    local bashrc="${HOME}/.bashrc"
+    if [ ! -f "$bashrc" ]; then
+        return 1
+    fi
+
+    if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$bashrc" 2>/dev/null; then
+        printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$bashrc"
+        printf 'export PATH="$HOME/.local/bin:$PATH"\n' >> "$bashrc"
+        if [ "${JSON}" -eq 0 ]; then
+            msg "→ Added ~/.local/bin to PATH for bash"
+        fi
+        return 0
+    fi
+    return 1  # already present
+}
+
+# =============================================================================
+# add_to_zshrc() - Add ~/.local/bin to ~/.zshrc
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Appends the PATH export to ~/.zshrc only if not already present.
+#
+# Returns 0 if added (or was already present), 1 if file missing or failed.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+add_to_zshrc() {
+    local zshrc="${HOME}/.zshrc"
+    if [ ! -f "$zshrc" ]; then
+        return 1
+    fi
+
+    if ! grep -qF 'export PATH="$HOME/.local/bin:$PATH"' "$zshrc" 2>/dev/null; then
+        printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$zshrc"
+        printf 'export PATH="$HOME/.local/bin:$PATH"\n' >> "$zshrc"
+        if [ "${JSON}" -eq 0 ]; then
+            msg "→ Added ~/.local/bin to PATH for zsh"
+        fi
+        return 0
+    fi
+    return 1  # already present
+}
+
+# =============================================================================
+# add_to_fish_config() - Add ~/.local/bin to Fish config
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Creates ~/.config/fish directory if needed and appends the PATH setting
+# to config.fish only if not already present.
+#
+# Returns 0 if added (or was already present), 1 if failed.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+add_to_fish_config() {
+    local fish_config="${HOME}/.config/fish/config.fish"
+
+    # Ensure directory exists
+    if [ ! -d "${HOME}/.config/fish" ] && ! mkdir -p "${HOME}/.config/fish" 2>/dev/null; then
+        return 1
+    fi
+
+    if [ -f "$fish_config" ] && grep -qF 'set -gx PATH $HOME/.local/bin $PATH' "$fish_config" 2>/dev/null; then
+        return 1  # already present
+    fi
+
+    printf "\n# Added by %s installer (%s)\n" "$APP_NAME" "$VERSION" >> "$fish_config"
+    printf 'set -gx PATH $HOME/.local/bin $PATH\n' >> "$fish_config"
+
+    if [ "${JSON}" -eq 0 ]; then
+        msg "→ Added ~/.local/bin to PATH for fish shell"
+    fi
+    return 0
+}
+
+# =============================================================================
 # SELF-INSTALL LOGIC - UPDATED TO v2 (April 2026)
 # =============================================================================
 #
 # CRITICAL DEFENSIVE FUNCTION - DO NOT SIMPLIFY, REMOVE, OR REFACTOR
 #
-# New in v2 (perform_self_install_v2):
+# New in v2 (perform_self_install):
 #   1. If environment variable CHECKSUM=<sha256> is set (e.g. exported by user or CI),
 #      the script will:
 #        • Download the script from ${SCRIPT_URL}
@@ -622,23 +971,23 @@ add_to_shell_path() {
 #
 # Updated from previous version:
 #   • Old: perform_self_install() performed blind download + move.
-#   • New: perform_self_install_v2() adds layered checksum verification while keeping
+#   • New: perform_self_install() adds layered checksum verification while keeping
 #     the rest of the installation logic (temp file, permissions, PATH handling) identical.
-#   • The function name was deliberately changed to perform_self_install_v2 to clearly
+#   • The function name was deliberately changed to perform_self_install to clearly
 #     signal the security upgrade. Old name is preserved in comments for reference.
 #   • All other self-update / self-uninstall logic continues to call the v2 version.
 #
 # !!! THIS IS THE SINGLE SOURCE OF TRUTH FOR SELF-INSTALLATION !!!
 # !!! DO NOT RENAME BACK, DO NOT MERGE WITH OTHER FUNCTIONS !!!
-# !!! ALWAYS CALL perform_self_install_v2() FOR NEW INSTALLS !!!
+# !!! ALWAYS CALL perform_self_install() FOR NEW INSTALLS !!!
 # Shebang remains #!/bin/sh - defensive and portable.
 # Repeated safe defaults and heavy comments are intentional.
 #
 # Aligned with https://github.com/Wilgat/ciao
-# Last aligned: 20 April 2026
+# Last aligned: 28 April 2026
 # =============================================================================
 
-perform_self_install_v2() {
+perform_self_install() {
     : "${GLOBAL_BIN:=/usr/local/bin}"
     : "${USER_BIN:=${HOME}/.local/bin}"
     : "${INSTALL_PATH:=${GLOBAL_BIN}/${APP_NAME}}"
@@ -668,7 +1017,57 @@ perform_self_install_v2() {
         return 0
     fi
 
-    # Create correct target directory (root vs user)
+    # Step 1: Prepare target folder
+    if ! perform_self_install_prepare_target; then
+        return 1
+    fi
+
+    local tmp_file
+    tmp_file=$(mktemp -t "${APP_NAME}.XXXXXX") || {
+        if [ "${JSON}" -eq 1 ]; then
+            output_json_error "Failed to create temporary file" "io_error"
+        else
+            error "Failed to create temporary file"
+        fi
+        return 1
+    }
+
+    # Step 2 & 3: Download (with or without checksum)
+    local downloaded_checksum_ok=0
+    if [ -n "${CHECKSUM:-}" ]; then
+        if ! perform_self_install_download_with_checksum "$tmp_file"; then
+            rm -f "${tmp_file}"
+            return 1
+        fi
+        downloaded_checksum_ok=1
+    else
+        if ! perform_self_install_download_without_checksum "$tmp_file"; then
+            rm -f "${tmp_file}"
+            return 1
+        fi
+        # downloaded_checksum_ok remains 0 if no .sha256 was used
+    fi
+
+    # Step 4: Atomic copy to final location
+    if ! perform_self_install_atomic_install "$tmp_file" "$downloaded_checksum_ok"; then
+        return 1
+    fi
+
+    return 0
+}
+
+# =============================================================================
+# perform_self_install_prepare_target() - Step 1: Target folder preparation
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Creates the correct installation directory (global or user) with proper
+# permissions check.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+perform_self_install_prepare_target() {
     if [ "$IS_ROOT" -eq 1 ]; then
         if ! mkdir -p "${GLOBAL_BIN}" 2>/dev/null; then
             if [ "${JSON}" -eq 1 ]; then
@@ -688,177 +1087,182 @@ perform_self_install_v2() {
             return 1
         fi
     fi
+    return 0
+}
 
-    local tmp_file
-    tmp_file=$(mktemp -t "${APP_NAME}.XXXXXX") || {
-        if [ "${JSON}" -eq 1 ]; then
-            output_json_error "Failed to create temporary file" "io_error"
-        else
-            error "Failed to create temporary file"
-        fi
-        return 1
-    }
+# =============================================================================
+# perform_self_install_download_with_checksum() - Step 2: Download with explicit CHECKSUM
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Downloads the script and verifies it against user-provided CHECKSUM (strict).
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+perform_self_install_download_with_checksum() {
+    local tmp_file="$1"
 
     if [ "${JSON}" -eq 0 ]; then
-        info "Downloading ${APP_NAME} from GitHub..."
+        info "Verifying download against provided CHECKSUM..."
     fi
 
-    # =============================================================================
-    # CHECKSUM VERIFICATION LAYER (v2 security upgrade)
-    # =============================================================================
-    local downloaded_checksum_ok=0
-
-    if [ -n "${CHECKSUM:-}" ]; then
-        # Explicit CHECKSUM provided by user/CI → strict verification
-        if [ "${JSON}" -eq 0 ]; then
-            info "Verifying download against provided CHECKSUM..."
-        fi
-
-        if command -v curl >/dev/null 2>&1; then
-            curl -fsSL "${SCRIPT_URL}" -o "${tmp_file}" || {
-                rm -f "${tmp_file}"
-                if [ "${JSON}" -eq 1 ]; then
-                    output_json_error "Download failed (curl)" "network_error"
-                else
-                    error "Download failed (curl)"
-                fi
-                return 1
-            }
-        elif command -v wget >/dev/null 2>&1; then
-            wget -qO "${tmp_file}" "${SCRIPT_URL}" || {
-                rm -f "${tmp_file}"
-                if [ "${JSON}" -eq 1 ]; then
-                    output_json_error "Download failed (wget)" "network_error"
-                else
-                    error "Download failed (wget)"
-                fi
-                return 1
-            }
-        else
-            rm -f "${tmp_file}"
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${SCRIPT_URL}" -o "${tmp_file}" || {
             if [ "${JSON}" -eq 1 ]; then
-                output_json_error "Neither curl nor wget found" "missing_dependency"
+                output_json_error "Download failed (curl)" "network_error"
             else
-                error "Neither curl nor wget found"
+                error "Download failed (curl)"
             fi
             return 1
-        fi
-
-        # Verify provided CHECKSUM
-        if printf '%s  %s\n' "${CHECKSUM}" "${tmp_file}" | sha256sum -c - >/dev/null 2>&1; then
-            downloaded_checksum_ok=1
-            if [ "${JSON}" -eq 0 ]; then
-                success "Checksum verification passed (user-provided CHECKSUM)."
-            fi
-        else
-            rm -f "${tmp_file}"
+        }
+    elif command -v wget >/dev/null 2>&1; then
+        wget -qO "${tmp_file}" "${SCRIPT_URL}" || {
             if [ "${JSON}" -eq 1 ]; then
-                output_json_error "Checksum verification failed (provided CHECKSUM does not match)" "checksum_mismatch"
+                output_json_error "Download failed (wget)" "network_error"
             else
-                die "Checksum verification failed. The downloaded file does not match the provided CHECKSUM. Installation aborted for security."
+                error "Download failed (wget)"
             fi
             return 1
-        fi
-
+        }
     else
-        # No explicit CHECKSUM → try automatic .sha256 file (best-effort)
-        if [ "${JSON}" -eq 0 ]; then
-            info "No CHECKSUM provided → attempting automatic verification via ${SCRIPT_URL}.sha256"
-        fi
-
-        if command -v curl >/dev/null 2>&1; then
-            # Primary download
-            curl -fsSL "${SCRIPT_URL}" -o "${tmp_file}" || {
-                rm -f "${tmp_file}"
-                if [ "${JSON}" -eq 1 ]; then
-                    output_json_error "Download failed (curl)" "network_error"
-                else
-                    error "Download failed (curl)"
-                fi
-                return 1
-            }
-
-            # Try to fetch .sha256 sidecar
-            local sha_file
-            sha_file=$(mktemp -t "${APP_NAME}.sha256.XXXXXX") || {
-                rm -f "${tmp_file}"
-                return 1
-            }
-
-            if curl -fsSL -w "%{http_code}" "${SCRIPT_URL}.sha256" -o "${sha_file}" 2>/dev/null | grep -q "^200"; then
-                if sha256sum -c "${sha_file}" --status 2>/dev/null < "${tmp_file}"; then
-                    downloaded_checksum_ok=1
-                    if [ "${JSON}" -eq 0 ]; then
-                        success "Automatic checksum verification passed (${SCRIPT_URL}.sha256)."
-                    fi
-                else
-                    rm -f "${tmp_file}" "${sha_file}"
-                    if [ "${JSON}" -eq 1 ]; then
-                        output_json_error "Automatic checksum verification failed" "checksum_mismatch"
-                    else
-                        die "Checksum verification failed (mismatch with ${SCRIPT_URL}.sha256). Installation aborted for security."
-                    fi
-                    return 1
-                fi
-            else
-                # No .sha256 available → proceed without verification (backward compatible)
-                if [ "${JSON}" -eq 0 ]; then
-                    warn "No .sha256 file found at ${SCRIPT_URL}.sha256 → continuing without automatic verification."
-                fi
-            fi
-            rm -f "${sha_file}" 2>/dev/null || true
-
-        elif command -v wget >/dev/null 2>&1; then
-            # Similar logic for wget (kept minimal and defensive)
-            wget -qO "${tmp_file}" "${SCRIPT_URL}" || {
-                rm -f "${tmp_file}"
-                if [ "${JSON}" -eq 1 ]; then
-                    output_json_error "Download failed (wget)" "network_error"
-                else
-                    error "Download failed (wget)"
-                fi
-                return 1
-            }
-
-            local sha_file
-            sha_file=$(mktemp -t "${APP_NAME}.sha256.XXXXXX") || {
-                rm -f "${tmp_file}"
-                return 1
-            }
-
-            if wget -q --server-response "${SCRIPT_URL}.sha256" -O "${sha_file}" 2>&1 | grep -q "HTTP/1.1 200"; then
-                if sha256sum -c "${sha_file}" --status 2>/dev/null < "${tmp_file}"; then
-                    downloaded_checksum_ok=1
-                    if [ "${JSON}" -eq 0 ]; then
-                        success "Automatic checksum verification passed."
-                    fi
-                else
-                    rm -f "${tmp_file}" "${sha_file}"
-                    if [ "${JSON}" -eq 1 ]; then
-                        output_json_error "Automatic checksum verification failed" "checksum_mismatch"
-                    else
-                        die "Checksum verification failed. Installation aborted for security."
-                    fi
-                    return 1
-                fi
-            else
-                if [ "${JSON}" -eq 0 ]; then
-                    warn "No .sha256 file found → continuing without automatic verification."
-                fi
-            fi
-            rm -f "${sha_file}" 2>/dev/null || true
+        if [ "${JSON}" -eq 1 ]; then
+            output_json_error "Neither curl nor wget found" "missing_dependency"
         else
-            rm -f "${tmp_file}"
-            if [ "${JSON}" -eq 1 ]; then
-                output_json_error "Neither curl nor wget found" "missing_dependency"
-            else
-                error "Neither curl nor wget found"
-            fi
-            return 1
+            error "Neither curl nor wget found"
         fi
+        return 1
     fi
 
-    # Final safety: if we reached here without explicit failure, file is in tmp_file
+    # Verify provided CHECKSUM
+    if printf '%s  %s\n' "${CHECKSUM}" "${tmp_file}" | sha256sum -c - >/dev/null 2>&1; then
+        if [ "${JSON}" -eq 0 ]; then
+            success "Checksum verification passed (user-provided CHECKSUM)."
+        fi
+        return 0
+    else
+        if [ "${JSON}" -eq 1 ]; then
+            output_json_error "Checksum verification failed (provided CHECKSUM does not match)" "checksum_mismatch"
+        else
+            die "Checksum verification failed. The downloaded file does not match the provided CHECKSUM. Installation aborted for security."
+        fi
+        return 1
+    fi
+}
+
+# =============================================================================
+# perform_self_install_download_without_checksum() - Step 3: Download with automatic .sha256
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Downloads the script and attempts best-effort verification via ${SCRIPT_URL}.sha256.
+# Falls back gracefully if no .sha256 file exists (backward compatible).
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+perform_self_install_download_without_checksum() {
+    local tmp_file="$1"
+
+    if [ "${JSON}" -eq 0 ]; then
+        info "No CHECKSUM provided → attempting automatic verification via ${SCRIPT_URL}.sha256"
+    fi
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL "${SCRIPT_URL}" -o "${tmp_file}" || {
+            if [ "${JSON}" -eq 1 ]; then
+                output_json_error "Download failed (curl)" "network_error"
+            else
+                error "Download failed (curl)"
+            fi
+            return 1
+        }
+
+        local sha_file
+        sha_file=$(mktemp -t "${APP_NAME}.sha256.XXXXXX") || return 1
+
+        if curl -fsSL -w "%{http_code}" "${SCRIPT_URL}.sha256" -o "${sha_file}" 2>/dev/null | grep -q "^200"; then
+            if sha256sum -c "${sha_file}" --status 2>/dev/null < "${tmp_file}"; then
+                if [ "${JSON}" -eq 0 ]; then
+                    success "Automatic checksum verification passed (${SCRIPT_URL}.sha256)."
+                fi
+            else
+                rm -f "${sha_file}"
+                if [ "${JSON}" -eq 1 ]; then
+                    output_json_error "Automatic checksum verification failed" "checksum_mismatch"
+                else
+                    die "Checksum verification failed (mismatch with ${SCRIPT_URL}.sha256). Installation aborted for security."
+                fi
+                return 1
+            fi
+        else
+            if [ "${JSON}" -eq 0 ]; then
+                warn "No .sha256 file found at ${SCRIPT_URL}.sha256 → continuing without automatic verification."
+            fi
+        fi
+        rm -f "${sha_file}" 2>/dev/null || true
+
+    elif command -v wget >/dev/null 2>&1; then
+        # wget branch (kept minimal)
+        wget -qO "${tmp_file}" "${SCRIPT_URL}" || {
+            if [ "${JSON}" -eq 1 ]; then
+                output_json_error "Download failed (wget)" "network_error"
+            else
+                error "Download failed (wget)"
+            fi
+            return 1
+        }
+
+        local sha_file
+        sha_file=$(mktemp -t "${APP_NAME}.sha256.XXXXXX") || return 1
+
+        if wget -q --server-response "${SCRIPT_URL}.sha256" -O "${sha_file}" 2>&1 | grep -q "HTTP/1.1 200"; then
+            if sha256sum -c "${sha_file}" --status 2>/dev/null < "${tmp_file}"; then
+                if [ "${JSON}" -eq 0 ]; then
+                    success "Automatic checksum verification passed."
+                fi
+            else
+                rm -f "${sha_file}"
+                if [ "${JSON}" -eq 1 ]; then
+                    output_json_error "Automatic checksum verification failed" "checksum_mismatch"
+                else
+                    die "Checksum verification failed. Installation aborted for security."
+                fi
+                return 1
+            fi
+        else
+            if [ "${JSON}" -eq 0 ]; then
+                warn "No .sha256 file found → continuing without automatic verification."
+            fi
+        fi
+        rm -f "${sha_file}" 2>/dev/null || true
+    else
+        if [ "${JSON}" -eq 1 ]; then
+            output_json_error "Neither curl nor wget found" "missing_dependency"
+        else
+            error "Neither curl nor wget found"
+        fi
+        return 1
+    fi
+
+    return 0
+}
+
+# =============================================================================
+# perform_self_install_atomic_install() - Step 4: Atomic copy to target location
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Makes the downloaded file executable and atomically moves it to the final
+# INSTALL_PATH. Also handles PATH addition for user installs and success output.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+perform_self_install_atomic_install() {
+    local tmp_file="$1"
+    local downloaded_checksum_ok="$2"
+
     chmod +x "${tmp_file}" 2>/dev/null || true
 
     rm -f "${INSTALL_PATH}" 2>/dev/null
@@ -912,7 +1316,7 @@ perform_self_install_v2() {
 # This helper exists specifically to prevent that regression and to enforce
 # CIAO-Lite principles of Caution, Intentionality, and Over-protect.
 #
-# Last reviewed & aligned: 22 April 2026
+# Last reviewed & aligned: 28 April 2026
 # =============================================================================
 
 prompt_yes_no() {
@@ -949,7 +1353,7 @@ prompt_yes_no() {
 }
 
 # =============================================================================
-# maybe_install_v4() - Friendly installation prompt
+# maybe_install() - Friendly installation prompt
 # =============================================================================
 #
 # Respects both --quiet and --json modes.
@@ -962,7 +1366,7 @@ prompt_yes_no() {
 # Last aligned: 22 April 2026
 # =============================================================================
 
-maybe_install_v4() {
+maybe_install() {
     : "${QUIET:=0}"
     : "${JSON:=0}"
     : "${FORCE_REINSTALL:=0}"
@@ -1005,7 +1409,7 @@ maybe_install_v4() {
     fi
 
     if [ "$should_install" = "true" ]; then
-        perform_self_install_v2
+        perform_self_install
         exit 0
     fi
 }
@@ -1028,7 +1432,8 @@ maybe_install_v4() {
 #
 # !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
 # Designed to be reusable in other CIAO projects.
-# Last reviewed: April 2026
+#
+# Last reviewed: 28 April 2026
 # =============================================================================
 show_about_git_sync() {
     if [ "${JSON}" -eq 1 ]; then
@@ -1157,6 +1562,11 @@ show_about_git_sync() {
 # In --quiet mode: prints nothing (silent).
 #
 # This is the user-facing help text and should be kept in sync with the README.md.
+#
+# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
+# Designed to be reusable in other CIAO projects.
+#
+# Last reviewed: 28 April 2026
 # =============================================================================
 show_about_git_help() {
     [ "${JSON}" -eq 1 ] && { output_json "success" "Run without --json for help."; return; }
@@ -1183,24 +1593,33 @@ EOF
 }
 
 # =============================================================================
-# Git-Specific Functions (New/Adapted)
+# git_sync_main_loop() - Main synchronization loop for Git repositories
 # =============================================================================
-git_sync_per_repo() {
-    local repo_dir="$1"
-    output_text plain "📂 Processing Git repo: $repo_dir"
-    (
-        cd "$repo_dir" || { output_text error "cd $repo_dir failed"; exit 1; }
-        output_text plain "   🔄 Resetting --hard..."
-        git reset --hard HEAD || { output_text error "git reset failed"; exit 1; }
-        output_text plain "   ⬇️  Pulling from origin main..."
-        git pull origin main || output_text warn "git pull failed (already up-to-date?)"
-    )
-    success "✅ Completed: $repo_dir"
-    output_text plain "--------------------------------------------------"
-}
+#
+# GENERAL PURPOSE:
+# Scans the given START_DIR (default: current directory) for direct
+# subfolders containing a .git directory, then calls git_sync_per_repo()
+# on each one.
+#
+# Includes defensive directory existence check and clear progress output.
+#
+# DESIGN INTENT:
+# Keeps the core Git logic simple, readable, and tolerant (continues on
+# individual repo failures). This is the main business logic of git-sync.
+#
+# CRITICAL:
+# Do NOT add recursive scanning or complex filters unless explicitly
+# requested by the user — this function is intentionally limited to
+# direct subfolders per the original project specification.
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
 
 git_sync_main_loop() {
     local START_DIR="${1:-.}"
+    if [ ! -d "$START_DIR" ]; then
+        die "Start directory does not exist: $START_DIR"
+    fi
     output_text plain "🔍 Checking subfolders under: $START_DIR"
     double_line
     local found=0
@@ -1214,6 +1633,38 @@ git_sync_main_loop() {
     [ "$found" -eq 0 ] && warn "No Git repos (.git) found in $START_DIR"
     success "🎉 Finished all repos!"
 }
+# =============================================================================
+# git_sync_per_repo() - Process a single Git repository
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Performs reset --hard + pull origin main on a single repository.
+# Runs inside a subshell to isolate directory changes and failures.
+#
+# SAFETY:
+# Failures in reset are fatal for that repo; pull failures are warnings
+# (common when already up-to-date).
+#
+# Last reviewed: 28 April 2026
+# =============================================================================
+
+git_sync_per_repo() {
+    local repo_dir="$1"
+    output_text plain "📂 Processing Git repo: $repo_dir"
+    (
+        cd "$repo_dir" || { output_text error "cd $repo_dir failed"; exit 1; }
+        output_text plain "   🔄 Resetting --hard..."
+        git reset --hard HEAD || { output_text error "git reset failed"; exit 1; }
+        output_text plain "   ⬇️  Pulling from origin main..."
+        if ! git pull origin main; then
+            output_text warn "git pull failed (already up-to-date or error?)"
+        fi
+    ) || {
+        output_text error "Failed to process repo: $repo_dir"
+        return 1
+    }
+    output_text plain "--------------------------------------------------"
+}
 
 # =============================================================================
 # main_git_sync() - Main dispatcher for the git-sync tool
@@ -1224,7 +1675,7 @@ git_sync_main_loop() {
 #   countdown sync 
 #
 # IMPORTANT DESIGN DECISION:
-#   The auto-install logic (`maybe_install_v4` / `perform_self_install_v2`) is triggered
+#   The auto-install logic (`maybe_install` / `perform_self_install`) is triggered
 #   when the script is run with ZERO arguments via `curl | sh`.
 #
 #   This is INTENTIONAL and CRITICAL for the one-liner installer to work.
@@ -1253,7 +1704,7 @@ main_git_sync() {
     # It ensures that `curl ... | sh` actually installs the tool instead of
     # just showing help and exiting with "command not found".
     #
-    # perform_self_install_v2 / maybe_install_v4 is important here EVEN THOUGH
+    # perform_self_install / maybe_install is important here EVEN THOUGH
     # a subcommand may be present later, because the main real-world usage
     # of this script is the one-liner installer. Installing first is the
     # expected behavior in that context.
@@ -1261,9 +1712,9 @@ main_git_sync() {
     if ! is_installed && [ $# -eq 0 ]; then
         if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ]; then
             # Non-interactive / JSON mode → install silently
-            perform_self_install_v2
+            perform_self_install
         else
-            maybe_install_v4
+            maybe_install
         fi
     fi
 
@@ -1297,9 +1748,9 @@ main_git_sync() {
                 msg "${APP_NAME} version ${VERSION}"
             fi
             ;;
-        version-check) version_check_v1 ;;
-        self-update) self_update_v3 ;;
-        self-uninstall) self_uninstall_v2 ;;
+        version-check) version_check ;;
+        self-update) self_update ;;
+        self-uninstall) self_uninstall ;;
         about) show_about_git_sync ;;
         --quiet|--json) QUIET=1; [ "$1" = "--json" ] && JSON=1; main_git_sync "$@" ;;
         *) die "Unknown: $cmd. Run ${APP_NAME} help" ;;
