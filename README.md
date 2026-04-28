@@ -1,6 +1,6 @@
 # git-sync
 
-[![Version](https://img.shields.io/badge/Version-1.0.7-blue?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.0.8-blue?style=flat-square)](CHANGELOG.md)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 [![CIAO](https://img.shields.io/badge/Philosophy-CIAO%20(Caution%20%E2%80%A2%20Intentional%20%E2%80%A2%20Anti--fragile%20%E2%80%A2%20Over--engineered)-purple.svg)](https://github.com/cloudgen/ciao)
 [![ShellParser](https://img.shields.io/badge/Maintained%20with-ShellParser-00AEEF?style=flat-square)](ShellParser.skill)
@@ -42,7 +42,7 @@ CHECKSUM="cf9e38c00da50efd3d83a57a16d05829cf39901506334c0249f06c6c0ee7ce28" \
 curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sh
 ```
 
-> **Current official SHA256 (v1.0.7)**:  
+> **Current official SHA256 (v1.0.8)**:  
 > `cf9e38c00da50efd3d83a57a16d05829cf39901506334c0249f06c6c0ee7ce28`
 
 ---

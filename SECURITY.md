@@ -40,7 +40,7 @@ We aim to acknowledge reports within **48 hours**.
 
 git-sync includes strong, layered download protection aligned with CIAO principles.
 
-**Current official checksum (v1.0.7)**:
+**Current official checksum (v1.0.8)**:
 
 ```text
 cf9e38c00da50efd3d83a57a16d05829cf39901506334c0249f06c6c0ee7ce28

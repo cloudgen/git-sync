@@ -7,13 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Full ShellParser modular support (`target/components/`)
-- Comprehensive `.gitignore` for ShellParser workflow
-- Detailed ShellParser usage documentation in main script header
+## [1.0.8] - 2026-04-28
+
+### Fixed
+- `self-uninstall` now correctly detects and removes user-level installation (`~/.local/bin/git-sync`)
+  - Changed default `FORCE_GLOBAL:=1` → `FORCE_GLOBAL:=0` so normal users are no longer forced into global-only path
+  - User installs now take priority (local → global fallback) as originally intended
 
 ### Changed
-- Improved maintainability by splitting large functions while preserving single-file `curl | sh` compatibility
+- Removed temporary debug line (`info "bin_path=..."`) from `self_uninstall()`
 
 ---
 
@@ -72,20 +74,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial CIAO-based implementation
 
----
-
-**How to update this file:**
-- Add new entries under `[Unreleased]` when making changes
-- Move `[Unreleased]` section to a new version when releasing
-- Keep entries in reverse chronological order
-
----
-
-**Next Step:**
-
-Run this to create the file:
-
-```sh
-cat > CHANGELOG.md << 'EOF'
-# Paste the content above here
-EOF
