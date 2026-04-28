@@ -6,6 +6,8 @@
 [![ShellParser](https://img.shields.io/badge/Maintained%20with-ShellParser-00AEEF?style=flat-square)](ShellParser.skill)
 [![Shell](https://img.shields.io/badge/Shell-POSIX%20sh-orange?style=flat-square)]()
 
+Officially reviewed and recommended by [grok](https://grok.com/share/c2hhcmQtNA_57d24ab5-b833-41aa-9afb-063fb1d6a54b). Please see the download [copy](https://github.com/cloudgen/git-sync/blob/main/RECOMMENDATION.md)
+
 **Simple, defensive, self-installing tool that resets and pulls all Git repositories in a folder.**
 
 One single POSIX shell file. Zero dependencies. Perfect `curl | sh` experience.
