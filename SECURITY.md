@@ -6,10 +6,11 @@ This document outlines security procedures and general security information for 
 
 ## Supported Versions
 
-| Version | Supported          | Notes |
-|---------|--------------------|-------|
-| 1.0.x   | ✅ Active          | Current stable branch |
-| < 1.0   | ❌ Not supported   | Please upgrade |
+| Version | Supported | Notes |
+|---------|-----------|-------|
+| 2.0.x   | Yes       | Current stable (Type 0 specialize from selfmanaged) |
+| 1.0.x   | No        | Superseded by 2.0.0 — please upgrade |
+| < 1.0   | No        | Please upgrade |
 
 ---
 
@@ -17,13 +18,10 @@ This document outlines security procedures and general security information for 
 
 **Please do not report security vulnerabilities via public GitHub issues.**
 
-We take all security reports seriously.
-
-**Preferred reporting method:**
-
-Send an email to: **security@cloudgen.dev**
+**Preferred reporting method:** email **cloudgen.wong@gmail.com** (author-email SSOT from `LICENSE.md`).
 
 Please include:
+
 - Description of the issue
 - Steps to reproduce
 - Potential impact
@@ -34,78 +32,71 @@ We aim to acknowledge reports within **48 hours**.
 
 ---
 
-## Security Features
+## Integrity (install / self-update)
 
-### 1. Checksum Verification (v2)
+git-sync is a POSIX shell CLI with online install and self-update. Integrity is **SHA-256**.
 
-git-sync includes strong, layered download protection aligned with CIAO principles.
+### Automatic companion digest (primary)
 
-**Current official checksum (v1.0.8)**:
+When `CHECKSUM` is **unset**, install/self-update **automatically** fetches `${SCRIPT_URL}.sha256` next to the script (same origin as the download).
+
+| Companion outcome | Behavior |
+|-------------------|----------|
+| HTTP 200 and digest **matches** the downloaded bytes | Continue |
+| HTTP 200 and digest **mismatches** | Abort (fail closed) |
+| Companion **missing** (no sidecar / non-200) | Warn and continue (best-effort automatic mode) |
+
+Current companion digest of `./git-sync` **2.0.0** (Format A, bare hex):
 
 ```text
-cf9e38c00da50efd3d83a57a16d05829cf39901506334c0249f06c6c0ee7ce28
+e6b50decf60e31275e7931c91bbd3d76e5eba2908fd6f32a25902a024b52ab49
 ```
 
-### 2. Recommended Secure Installation
+This is **same-origin** automatic verification, not a second independent publisher. It stops accidental truncation and many same-host swaps; it is **not** the highest-assurance pin.
+
+### Strict pin (optional)
+
+Set `CHECKSUM` to the expected SHA-256 hex to require an exact match (fail closed on mismatch or missing compare).
 
 ```bash
-# Most secure method (pinned checksum)
-CHECKSUM="cf9e38c00da50efd3d83a57a16d05829cf39901506334c0249f06c6c0ee7ce28" \
+CHECKSUM="e6b50decf60e31275e7931c91bbd3d76e5eba2908fd6f32a25902a024b52ab49" \
   curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | sh
 ```
 
-### 3. Built-in Protections
+### Other protections
 
-- **Explicit CHECKSUM** environment variable support (strict verification)
-- **Automatic `.sha256` sidecar** verification when available
-- Fail-fast on mismatch with clear security error
-- Atomic installation (temp file → `mv`)
-- No silent failures
-- Version comparison prevents accidental downgrades
-- Protection zones around all self-install / self-update logic
-
----
-
-## Installation Security Best Practices
-
-1. **Preferred**: Use the pinned checksum method shown above.
-2. **Standard**: The one-liner still benefits from built-in verification.
-3. **Maximum security** (high-trust environments):
-   - Download the script manually
-   - Verify checksum
-   - Review the code before running
+- Atomic install (temp file → `mv`)
+- No silent failures on checksum mismatch
+- Version comparison resists accidental downgrade
+- Protection zones around install / self-update
 
 ---
 
 ## Known Risks & Mitigations
 
-| Risk                              | Mitigation |
-|-----------------------------------|----------|
-| Supply-chain attack on `curl \| sh` | Checksum verification (v2) + manual review encouraged |
-| GitHub raw content tampering      | Automatic + explicit checksum checks |
-| Malicious self-update             | Version comparison + checksum |
-| PATH / permission issues          | Defensive root vs user logic + safety checks |
+| Risk | Mitigation |
+|------|------------|
+| Supply-chain attack on `curl \| sh` | Automatic companion digest + optional `CHECKSUM` pin + manual review |
+| GitHub raw content tampering | Same-origin `.sha256` + optional pin |
+| Malicious self-update | Version compare + checksum |
+| PATH / permission issues | Defensive root vs user install paths |
 
 ---
 
 ## Responsible Disclosure
 
-We follow responsible disclosure practices:
 - Acknowledge receipt within 48 hours
-- Provide regular status updates
-- Credit reporters (unless anonymity requested)
-- Release fix as soon as possible
+- Provide status updates
+- Credit reporters unless anonymity is requested
+- Ship a fix as soon as possible
 
 ---
 
 ## Contact
 
-- Security reports: **wongcf22@gmail.com**
+- Security reports: **cloudgen.wong@gmail.com**
 - General questions / issues: [GitHub Issues](https://github.com/cloudgen/git-sync/issues)
 
----
+**Thank you** for helping keep git-sync secure.
 
-**Thank you** for helping keep git-sync secure and trustworthy.
-
-*Built with strict CIAO principles — Caution, Intentionality, Anti-fragility, and Over-protection.*
-
+*Built with CIAO principles — Caution, Intentionality, Anti-fragility, and Over-protection.*

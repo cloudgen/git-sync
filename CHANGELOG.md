@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-18
+
+### Changed
+- **Bootstrap specialize from selfmanaged 1.2.1** (A→B): ship unit rebuilt on Type 0 `out_*` / `inst_*` / `app_*` architecture
+- Domain command is explicit **`sync [START_DIR]`** (empty argv is Type O install-ensure, not domain sync)
+- Product version jump to **2.0.0** (major: architecture inheritance + CLI contract alignment with selfmanaged)
+- Companion digest: `git-sync.sha256`
+- Product law under `docs/requirements/` (Type 0 peers from bootstrap + `requirement-domain-git-sync`)
+- SECURITY / README honesty: supported version **2.0.x**, automatic SHA-256 companion outcomes, author-email contact from `LICENSE.md`
+
+### Added
+- Domain prefix `gs_*` (`gs_main_loop`, `gs_per_repo`) with JSON summary (`type=sync`)
+- Env overrides `GS_REMOTE` (default `origin`) and `GS_BRANCH` (default `main`)
+- Path free-token → `sync` (e.g. `git-sync ~/projects`)
+- Legacy 1.0.7 ship unit archived under `.bootstrap-archive/`
+- Bootstrap origin binary kept as workspace reference: `./selfmanaged`
+
+### Preserved
+- Direct-child-only `.git` scan (non-recursive)
+- `git reset --hard HEAD` then pull; pull failures remain non-fatal per-repo (legacy tolerance)
+
+---
+
 ## [1.0.8] - 2026-04-28
 
 ### Fixed
