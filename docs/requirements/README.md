@@ -2,7 +2,7 @@
 
 Authoritative product and engineering requirements for this project live here.
 
-**Current state (2026-08-18 — git-sync specialized):** **11** Active `requirement-*.md` files registered in `index.md`: class (`requirement-class-software-dev`) + **one** domain SSOT (`requirement-domain-git-sync`) + nine Type 0 `requirement-shell-*.md` peers. Type 0 self-install/self-maintenance + per-user scratch storage + `sync` domain. Do **not** invent additional requirement paths without a real ownership gap — verify on disk and register new files in `index.md` in the same change. Do **not** empty this registry to look like genesis.
+**Current state (2026-09-06 — git-sync specialized):** **12** Active `requirement-*.md` files registered in `index.md`: class (`requirement-class-software-dev`) + **one** domain SSOT (`requirement-domain-git-sync`) + ten `requirement-shell-*.md` peers (including coding-style). Self-install/self-maintenance + per-user cache folder and persistence folder + `sync` domain. Do **not** invent additional requirement paths without a real ownership gap — verify on disk and register new files in `index.md` in the same change. Do **not** empty this registry to look like genesis.
 
 ## Purpose
 

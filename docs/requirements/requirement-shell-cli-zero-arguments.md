@@ -4,11 +4,11 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for **zero-argument (empty argv) dispatcher behavior** of the selfmanaged POSIX `/bin/sh` Type 0 CLI.
+This requirement is the **project Single Source of Truth** for **zero-argument (empty argv) dispatcher behavior** of the git-sync POSIX `/bin/sh` Type 0 CLI.
 
 ### 1.0 Product type (template dual-model)
 
-| Field | Value for selfmanaged |
+| Field | Value for git-sync |
 |-------|------------------------|
 | **Empty-argv type** | **Type O — Online-install** (not Type N) |
 | **Rationale** | Product advertises `curl … \| sh` one-liner install; empty argv is install-ensure, not help |
@@ -18,7 +18,7 @@ Type N (non-online-install → empty argv = help) does **not** apply to this pro
 It defines what happens when the tool is invoked with **no command and no flags**, including the classic one-liner:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/cloudgen/selfmanaged/main/selfmanaged | /bin/sh
+curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync | /bin/sh
 ```
 
 Empty argv means **install-ensure** for three detect cases:
@@ -26,33 +26,59 @@ Empty argv means **install-ensure** for three detect cases:
 | Case | Meaning |
 |------|---------|
 | **Not installed** | No managed binary at the resolved install path(s) |
-| **Installed (local)** | Managed binary at the user path (`USER_BIN` / `${HOME}/.local/bin/selfmanaged`) |
-| **Installed (global)** | Managed binary at the global path (`GLOBAL_BIN` / `/usr/local/bin/selfmanaged`) |
+| **Installed (local)** | Managed binary at the user path (`USER_BIN` / `${HOME}/.local/bin/git-sync`) |
+| **Installed (global)** | Managed binary at the global path (`GLOBAL_BIN` / `/usr/local/bin/git-sync`) |
 
 **Scope:** Empty-argv routing, detect cases (global / local / absent), messages, force boundary, exit status, interaction with TTY / quiet / json.  
 **Out of scope (own requirements):** Full command catalog (`requirement-shell-cli-interface.md`); download/checksum detail (`requirement-shell-automatic-checksum.md`); full self-update/uninstall lifecycle (`requirement-shell-self-management.md`); output function catalog (`requirement-shell-output-requirements.md`); general idempotency matrix beyond empty-argv rows (`requirement-shell-idempotency.md`).
 
 ---
 
+### 1.1 Human-facing
+
+**In one sentence:** Running `git-sync` with **no arguments** means install or re-check install — not help, and not a folder sync.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | Classic `curl \| sh` lands here: empty argv is install-ensure. | `curl -fsSL …/git-sync \| sh` |
+| The other role | `git-sync help` is the only full-usage path. `git-sync sync` is domain. | `git-sync help` |
+| Not this file | Checksum fetch; PATH rc edits beyond ensure. | `requirement-shell-automatic-checksum` |
+
+| Includes | Excludes |
+|----------|----------|
+| Not installed / local / global detect | Empty argv running `sync` |
+| Already-installed success no-op | Silent re-download without `--force` |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | empty argv |
+| `git-sync` (no args) | command | install-ensure |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| First install | No arguments installs (TTY may confirm; pipes auto-install). | `curl -fsSL https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync \| sh` |
+| Already installed | Second empty argv says already installed and exits 0. | `git-sync` |
+
+
 ## 2. Core Rules / Requirements (Mandatory)
 
 ### 2.1 Definitions (portable + project)
 
-| Term | Definition for selfmanaged |
+| Term | Definition for git-sync |
 |------|----------------------------|
 | **Type O** | Online-install empty-argv product type: empty argv = install-ensure (this product). |
-| **Type N** | Non-online-install empty-argv type: empty argv = help — **out of scope** for selfmanaged. |
+| **Type N** | Non-online-install empty-argv type: empty argv = help — **out of scope** for git-sync. |
 | **Empty argv / zero-arg** | `$# -eq 0` at entry to `app_main` (no command tokens; classic `curl \| sh` with no trailing args). |
-| **Install-ensure** | Converge to “managed `selfmanaged` binary present”; either perform install or success no-op. |
+| **Install-ensure** | Converge to “managed `git-sync` binary present”; either perform install or success no-op. |
 | **Not installed** | `inst_is_installed` returns false (`inst_get_version` → `not installed`). |
-| **Installed (local)** | Executable at `${USER_BIN}/selfmanaged` (default `USER_BIN=${HOME}/.local/bin`) observed by install-detect SSOT. |
-| **Installed (global)** | Executable at `${GLOBAL_BIN}/selfmanaged` (default `GLOBAL_BIN=/usr/local/bin`) observed by install-detect SSOT. |
+| **Installed (local)** | Executable at `${USER_BIN}/git-sync` (default `USER_BIN=${HOME}/.local/bin`) observed by install-detect SSOT. |
+| **Installed (global)** | Executable at `${GLOBAL_BIN}/git-sync` (default `GLOBAL_BIN=/usr/local/bin`) observed by install-detect SSOT. |
 | **Force / reinstall** | `FORCE_REINSTALL=1` from `--force` (and related force wiring in `app_main`). Required only for deliberate replace, not for ensure. |
 
 ### 2.2 Single meaning of empty argv
 
 1. When **argv is empty**, `app_main` **MUST** run **install-ensure** — **MUST NOT** route to `app_help` / default `COMMAND=help`.  
-2. Explicit `selfmanaged help` remains the only full-usage path for help text.  
+2. Explicit `git-sync help` remains the only full-usage path for help text.  
 3. Bootstrap **MUST** always call `app_main "$@"` so pipe one-liners reach this contract (no `${0##*/}` product-name gate).  
 4. Empty argv **MUST NOT** require the user to pass `install` or `install --force` merely because a previous ensure already succeeded.
 
@@ -85,8 +111,8 @@ Empty argv means **install-ensure** for three detect cases:
 
 | Invoker | Target |
 |---------|--------|
-| root (`id -u` 0), e.g. `curl … \| sudo sh` | `${GLOBAL_BIN}/selfmanaged` → `/usr/local/bin/selfmanaged` |
-| non-root | `${USER_BIN}/selfmanaged` → `${HOME}/.local/bin/selfmanaged` |
+| root (`id -u` 0), e.g. `curl … \| sudo sh` | `${GLOBAL_BIN}/git-sync` → `/usr/local/bin/git-sync` |
+| non-root | `${USER_BIN}/git-sync` → `${HOME}/.local/bin/git-sync` |
 
 ### 2.5 Equivalence to explicit `install`
 
@@ -108,11 +134,11 @@ Empty argv means **install-ensure** for three detect cases:
 
 ### 2.7 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
 | **Empty-argv type** | **Type O — Online-install** (install-ensure; not Type N help-default) |
-| **Product / binary** | `selfmanaged` (`APP_NAME`) |
-| **Ship unit** | Repo root `./selfmanaged` |
+| **Product / binary** | `git-sync` (`APP_NAME`) |
+| **Ship unit** | Repo root `./git-sync` |
 | **Dispatcher** | `app_main` — empty-argv block **before** flag/command parse default help |
 | **Install ensure** | `inst_perform_install` (quiet/json and already-installed no-op) |
 | **Friendly first install** | `inst_maybe_install` (TTY confirm / non-TTY auto) when not installed and not quiet/json |
@@ -158,6 +184,13 @@ app_main:
 - **CIAO Principle 4 (O) / Principle 20 – Over-protect / Protect Against AI & Human Modification** (https://github.com/cloudgen/ciao): Protection Rule against help-fallback regression.
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Empty argv still install-ensure for **this login**. Do not require root. Do not recommend `sudo curl | sh` on Termux / Git Bash / Windows Command Prompt.
+
 
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
@@ -213,7 +246,7 @@ This requirement is satisfied when all of the following hold:
 | `docs/requirements/requirement-shell-self-management.md` | self-update / uninstall (not empty-argv default) |
 | `docs/requirements/requirement-shell-output-requirements.md` | out_* / JSON purity |
 | `docs/requirements/requirement-shell-automatic-checksum.md` | Integrity on install download path |
-| Repo root `./selfmanaged` | Implementation (`app_main`, `inst_*`) |
+| Repo root `./git-sync` | Implementation (`app_main`, `inst_*`) |
 | `tests/test_cli.sh`, `tests/test_install_lifecycle.sh` | Regression coverage |
 
 ---
@@ -227,7 +260,7 @@ This requirement is satisfied when all of the following hold:
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 3, 6, 16, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).
 

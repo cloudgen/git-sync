@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for **CLI self-management** of the selfmanaged POSIX shell tool: inspecting, upgrading, and removing its own installed binary (and related install artifacts) safely—especially for tools installed via one-command online install (`curl | sh`)—without requiring a separate package-manager workflow for routine updates.
+This requirement is the **project Single Source of Truth** for **CLI self-management** of the git-sync POSIX shell tool: inspecting, upgrading, and removing its own installed binary (and related install artifacts) safely—especially for tools installed via one-command online install (`curl | sh`)—without requiring a separate package-manager workflow for routine updates.
 
 It defines lifecycle capabilities and safety rules for this shell project’s self-management commands.
 
@@ -14,6 +14,32 @@ It defines lifecycle capabilities and safety rules for this shell project’s se
 **Must not confuse with:** OS package managers, domain product start/stop ops, dedicated system-user policy, or non-CLI “self-management.”
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** You inspect, update, and remove **this program’s** installed file without a distro package manager.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | `version-check`, `self-update`, `self-uninstall`, `about` run as you. | `git-sync self-update` |
+| The other role | Channel `SCRIPT_URL` is the trusted download. | `git-sync version-check` |
+| Not this file | Domain `sync` of Git folders. | `git-sync sync .` |
+
+| Includes | Excludes |
+|----------|----------|
+| Update/remove of `git-sync` | `apt` / `dnf` packages |
+| `about` install diagnostics | Host bootstrap as root for domain work |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | lifecycle |
+| `git-sync about` | command | install paths |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Update | Fetches the channel, verifies, replaces the installed file. | `git-sync self-update` |
+| Remove | Confirms on a terminal unless `--force`; JSON without force fails closed. | `git-sync self-uninstall` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -95,24 +121,24 @@ Root may write global install path; non-root uses user path. Do not assume root 
 
 ### 2.8 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
-| **Product / binary** | `selfmanaged` (`APP_NAME`) |
-| **Implementation file** | Repo root `./selfmanaged` |
+| **Product / binary** | `git-sync` (`APP_NAME`) |
+| **Implementation file** | Repo root `./git-sync` |
 | **Dispatcher** | `app_main` routes `version-check` → `ver_check`; `self-update` → `inst_self_update`; `self-uninstall` → `inst_self_uninstall`; `about` → `app_about` |
 | **Install orchestrator SSOT** | `inst_perform_install` (+ prepare / download with or without checksum / atomic install) |
 | **Version compare** | `ver_gt` (pure POSIX); local version via `inst_get_version` |
 | **Install presence** | `inst_is_installed` |
 | **Paths** | `GLOBAL_BIN` default `/usr/local/bin`; `USER_BIN` default `${HOME}/.local/bin` |
-| **Repository identity** | `REPO_USER` default `cloudgen`; `REPO_NAME` default `selfmanaged` |
-| **Release channel** | `SCRIPT_URL` Config default composed as `https://raw.githubusercontent.com/${REPO_USER}/${REPO_NAME}/main/${APP_NAME}` (this project: `https://raw.githubusercontent.com/cloudgen/selfmanaged/main/selfmanaged` — product channel SSOT; override `SCRIPT_URL` or `REPO_*` via env if needed) |
+| **Repository identity** | `REPO_USER` default `cloudgen`; `REPO_NAME` default `git-sync` |
+| **Release channel** | `SCRIPT_URL` Config default composed as `https://raw.githubusercontent.com/${REPO_USER}/${REPO_NAME}/main/${APP_NAME}` (this project: `https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync` — product channel SSOT; override `SCRIPT_URL` or `REPO_*` via env if needed) |
 | **Strict digest pin** | Runtime `CHECKSUM` when set in process env → `inst_perform_install_download_with_checksum` (secondary install-path only; **not** shown in `help`/`about`; see automatic-checksum requirement) |
 | **Companion digest** | Default `${SCRIPT_URL}.sha256` via `inst_perform_install_download_without_checksum` — law + transparency: `requirement-shell-automatic-checksum.md` |
 | **Force reinstall** | `FORCE_REINSTALL`; CLI `--force` required by CLI interface requirement |
 | **Uninstall steps** | `inst_self_uninstall_determine_bin` → `inst_self_uninstall_confirm_and_remove` → `inst_self_uninstall_cleanup_path` |
 | **PATH ensure** | `path_add_shell` / bash / zsh / fish helpers on user install |
 | **Privilege** | Type 0 only for self-management surface; no dedicated system user |
-| **Version SSOT** | `VERSION` default `1.2.1` in script config block (`VERSION="1.2.1"`) |
+| **Version SSOT** | `VERSION` default `2.0.1` in script config block (`VERSION="2.0.1"`) |
 
 #### Normative acceptance behaviors (this project)
 
@@ -132,7 +158,7 @@ Root may write global install path; non-root uses user path. Do not assume root 
 |------|--------|
 | Downgrade gate via `ver_gt` (refuse unless `--force`) | **Implemented** in `inst_self_update` (2026-07-12) |
 | CLI `--force` → `FORCE` / `FORCE_REINSTALL` | **Implemented** in `app_main` |
-| `SCRIPT_URL` default channel URL | **This project:** non-empty product default composed from `REPO_USER` / `REPO_NAME` / `APP_NAME` (`https://raw.githubusercontent.com/cloudgen/selfmanaged/main/selfmanaged`); product README must show simple literal one-liner(s) from that SSOT; env may still override |
+| `SCRIPT_URL` default channel URL | **This project:** non-empty product default composed from `REPO_USER` / `REPO_NAME` / `APP_NAME` (`https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync`); product README must show simple literal one-liner(s) from that SSOT; env may still override |
 
 ### 2.9 Why This Requirement Exists (Direct CIAO Alignment)
 
@@ -145,6 +171,13 @@ Root may write global install path; non-root uses user path. Do not assume root 
 - **CIAO Principle 4 (O) / Principle 20 – Over-protect / Protect Against AI & Human Modification** (https://github.com/cloudgen/ciao): Digest, atomicity, PATH empty-dir check are sacred.
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Update and uninstall target this login’s install (or a root session that already owns the global binary). Do not invent a dedicated system user for self-update.
+
 
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
@@ -179,7 +212,7 @@ Root may write global install path; non-root uses user path. Do not assume root 
 
 ## 5. Definition of done (shell self-management)
 
-Work claiming self-management support for selfmanaged is **not done** if any of the following fail:
+Work claiming self-management support for git-sync is **not done** if any of the following fail:
 
 1. User-facing lifecycle commands exist and are routed (`version-check`, `self-update`, `self-uninstall`, `about`).  
 2. Update path verifies integrity (pinned and/or companion digest policy) and uses atomic replace via install SSOT.  
@@ -202,10 +235,10 @@ Work claiming self-management support for selfmanaged is **not done** if any of 
 | `docs/requirements/requirement-shell-output-requirements.md` | Lifecycle messaging / quiet / JSON |
 | `docs/requirements/requirement-shell-modular-function-design.md` | `inst_*` / `out_*` ownership |
 | `docs/requirements/index.md` | Registry SSOT |
-| `./selfmanaged` | Implementation under test |
+| `./git-sync` | Implementation under test |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 3, 5, 10, 11, 14, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).

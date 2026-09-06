@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for how the selfmanaged **POSIX shell CLI** behaves in **interactive** (human + TTY) versus **non-interactive** (automation, `curl | sh`, CI/CD, pipes, `--json` / often `--quiet`) environments.
+This requirement is the **project Single Source of Truth** for how the git-sync **POSIX shell CLI** behaves in **interactive** (human + TTY) versus **non-interactive** (automation, `curl | sh`, CI/CD, pipes, `--json` / often `--quiet`) environments.
 
 It defines interactive vs non-interactive behavior for this shell project (global flags + `prompt_*` + TTY detection—not a Node Config singleton).
 
@@ -12,6 +12,31 @@ It defines interactive vs non-interactive behavior for this shell project (globa
 **Out of scope (cited, not re-owned):** Full command catalog (`requirement-shell-cli-interface.md`); output function catalog (`requirement-shell-output-requirements.md`); self-update integrity (`requirement-shell-self-management.md`); idempotency matrix (`requirement-shell-idempotency.md`).
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** On a terminal the program may ask yes/no; in a pipe, CI, or `--json` it **must not hang**.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | TTY: uninstall confirm unless `--force`. | `git-sync self-uninstall` |
+| The other role | `curl \| sh` and `--json` auto-apply documented defaults. | `git-sync --json self-uninstall` |
+| Not this file | Git pull confirmations (there are none). | `git-sync sync .` |
+
+| Includes | Excludes |
+|----------|----------|
+| Measure TTY outside functions; helpers read `TTY` | Live `[ -t` inside `prompt_*` as policy |
+| JSON uninstall without `--force` → `confirm_required` | Waiting on stdin in CI |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | `TTY` / `prompt_*` |
+| `git-sync --json self-uninstall` | command | fail closed without force |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Automate | `--json` never waits for a key. Uninstall without `--force` returns `confirm_required`. | `git-sync --json self-uninstall` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -28,7 +53,7 @@ For shell CLIs without a separate Config class, the **mode SSOT** is the **globa
 
 | Signal | Variable / check | Meaning |
 |--------|------------------|---------|
-| TTY | `TTY=1` when stdin and stdout are terminals; also live `[ -t 0 ]` / `[ -t 1 ]` in prompt helpers | Interactive UX possible |
+| TTY | `TTY=1` when `[ -t 0 ]` and `[ -t 1 ]` run in the **main process, outside functions** (script top or `app_main` before dispatch). Helpers **consume `TTY`**. **MUST NOT** use live `[ -t` inside `prompt_*` as the policy gate. | Interactive UX possible |
 | Quiet | `QUIET=1` (`--quiet` / `-q`) | Suppress non-essential human chatter |
 | JSON | `JSON=1` (`--json`; implies quiet) | Machine output; no human hang; no human banners |
 | Debug | `DEBUG=1` (`--debug`) | Extra stderr diagnostics; suppressed under JSON |
@@ -106,10 +131,10 @@ interactive   non-interactive
 
 ### 2.5 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
-| **Product / binary** | `selfmanaged` |
-| **Implementation** | Repo root `./selfmanaged` |
+| **Product / binary** | `git-sync` |
+| **Implementation** | Repo root `./git-sync` |
 | **Mode globals** | `TTY`, `QUIET`, `JSON`, `DEBUG`, `FORCE`, `FORCE_REINSTALL` |
 | **TTY init** | `[ -t 0 ] && [ -t 1 ] && TTY=1` near config block |
 | **Flag parse SSOT** | `app_main` |
@@ -168,6 +193,13 @@ This dual policy is intentional: **pipe install proceeds**; **destructive uninst
 
 ---
 
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Prompts stay optional on a terminal. Pipes never hang. Do not add a sudo-password ladder on this class.
+
+
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
 - **Caution:** Prefer cancel over destructive auto-action when intent is ambiguous; prefer auto-install for classic one-liner when not installed.  
@@ -199,7 +231,7 @@ This dual policy is intentional: **pipe install proceeds**; **destructive uninst
 
 ## 5. Definition of done (shell interactive vs non-interactive)
 
-Mode-related work for selfmanaged is **not done** if any of the following fail:
+Mode-related work for git-sync is **not done** if any of the following fail:
 
 1. No code path blocks on `read` under `--json`, `--quiet`, or non-TTY (except documented `INTERACTIVE=1` value prompt).  
 2. Destructive uninstall without `--force` does not silently proceed in non-interactive mode.  
@@ -221,10 +253,10 @@ Mode-related work for selfmanaged is **not done** if any of the following fail:
 | `docs/requirements/requirement-shell-self-management.md` | Uninstall confirm / force policy |
 | `docs/requirements/requirement-shell-idempotency.md` | Re-run safety under automation |
 | `docs/requirements/index.md` | Registry SSOT |
-| `./selfmanaged` | Implementation under test |
+| `./git-sync` | Implementation under test |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 3, 16, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).

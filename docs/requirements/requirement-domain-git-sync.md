@@ -21,11 +21,11 @@ It owns the **four domain pillars**:
 | Peer | Requirement-ID | Owns |
 |------|----------------|------|
 | CLI interface | **RQ-SHELL-CLI-INTERFACE** | Dispatch, empty argv Type O, help routing |
-| Shell CLI storage | **RQ-SHELL-CLI-STORAGE** | Scratch/cache resolve, isolation, about storage fields |
+| Shell CLI storage | **RQ-SHELL-CLI-STORAGE** | Cache folder + persistence folder, isolation, about storage fields |
 | Output | **RQ-SHELL-OUTPUT-REQUIREMENTS** | `out_*` channels |
 
 **Scope:** Domain command surface, scan/reset/pull semantics, human/JSON domain contracts, help/about domain rows.  
-**Out of scope (peer requirements own):** Install / self-update / uninstall / empty-argv install-ensure; full `out_*` catalog; modular prefix system shape; companion-digest integrity; shell scratch resolve (**RQ-SHELL-CLI-STORAGE**); Type 1 host bootstrap.
+**Out of scope (peer requirements own):** Install / self-update / uninstall / empty-argv install-ensure; full `out_*` catalog; modular prefix system shape; companion-digest integrity; shell cache folder + persistence folder (**RQ-SHELL-CLI-STORAGE**); Type 1 host bootstrap.
 
 **Must not confuse with:** Type 0 lifecycle commands (`install`, `version`, `about`, `version-check`, `self-update`, `self-uninstall`, `help`); recursive monorepo tooling; forge/API clients.
 
@@ -34,6 +34,33 @@ It owns the **four domain pillars**:
 **Naming law:** Domain SSOT basename is `requirement-domain-git-sync.md` (subject **git-sync**).
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** `git-sync sync DIR` resets and pulls every **direct** child of `DIR` that contains `.git`.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | You name a folder of checkouts. Nested clones are skipped. | `git-sync sync ~/projects` |
+| The other role | Each child’s remote/branch (`GS_REMOTE` / `GS_BRANCH`, defaults `origin` / `main`). | `GS_BRANCH=main` |
+| Not this file | Install of this program; empty argv. | `git-sync` with no args |
+
+| Includes | Excludes |
+|----------|----------|
+| Direct children with `.git`; `reset --hard` then `pull` | Recursive walk; merge UI; forge API |
+| Path free-token `git-sync ~/projects` | Empty argv meaning sync |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | `gs_*` |
+| `git-sync sync .` | command | domain |
+| `git-sync --json sync /no/such` | command | `no_start_dir` |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Sync a folder | Only immediate children with `.git` are processed. Nested `vendor/.git` is not. | `git-sync sync ~/projects` |
+| Machine summary | One JSON object: `found` / `ok` / `failed` / `repos`. | `git-sync --json sync .` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -44,6 +71,9 @@ Domain verbs **MUST** be stable unless this requirement is explicitly revised. D
 | Command | Privilege | Handler family | Operands / flags | Required behavior | Typical non-zero outcomes |
 |---------|-----------|----------------|------------------|-------------------|---------------------------|
 | `sync` | Type 0 (invoker) | `gs_main_loop` / `gs_per_repo` | optional `[START_DIR]`; global `--json` / `--quiet` / `--debug` | Scan **direct** children of `START_DIR` (default `.`) for `.git`; for each repo: `git reset --hard HEAD` then `git pull ${GS_REMOTE} ${GS_BRANCH}` | missing start dir → fail; `git` missing → fail; reset failure per repo → count as failed |
+
+**Invocation sample (dual mention, topic-owner):** `git-sync sync .`  
+Also valid: `git-sync ~/projects` (path free-token → `sync`).
 
 **Dispatch rules:**
 
@@ -123,7 +153,7 @@ JSON error codes (stable):
 - Domain section: `sync [START_DIR]` with default `.` and direct-children-only note  
 - Type 0 self-management table retained  
 - Global flags retained  
-- Environment: `REPO_*` / `SCRIPT_URL` (Type 0); domain may document `GS_REMOTE` / `GS_BRANCH` when expanded  
+- Environment: `REPO_*` / `SCRIPT_URL` (lifecycle); domain **MUST** document `GS_REMOTE` / `GS_BRANCH` (defaults `origin` / `main`)  
 
 ### 2.4 Specialized project about items
 
@@ -135,6 +165,13 @@ JSON error codes (stable):
 Domain-specific storage diagnostics are **not** required (domain does not persist app state beyond git working trees).
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** `sync` runs as this login against folders you can already write. Do not wrap `git` in `sudo`.
+
 
 ## 3. Architecture inheritance (from bootstrap A)
 
@@ -161,7 +198,7 @@ Domain-specific storage diagnostics are **not** required (domain does not persis
 
 ---
 
-**Last Updated**: 2026-08-11  
+**Last Updated**: 2026-09-06  
 **Owner**: product git-sync maintainers
 
 ## Design-time verification

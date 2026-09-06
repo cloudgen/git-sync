@@ -46,10 +46,10 @@ When `CHECKSUM` is **unset**, install/self-update **automatically** fetches `${S
 | HTTP 200 and digest **mismatches** | Abort (fail closed) |
 | Companion **missing** (no sidecar / non-200) | Warn and continue (best-effort automatic mode) |
 
-Current companion digest of `./git-sync` **2.0.0** (Format A, bare hex):
+Current companion digest of `./git-sync` **2.0.1** (Format A, bare hex):
 
 ```text
-e6b50decf60e31275e7931c91bbd3d76e5eba2908fd6f32a25902a024b52ab49
+ecfa52f53208277148cc30829f752c69a5383443d222e881147187a10dfaeb8e
 ```
 
 This is **same-origin** automatic verification, not a second independent publisher. It stops accidental truncation and many same-host swaps; it is **not** the highest-assurance pin.

@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for **modular function organization** of the selfmanaged POSIX shell CLI.
+This requirement is the **project Single Source of Truth** for **modular function organization** of the git-sync POSIX shell CLI.
 
 It defines modular function organization for a **monolithic yet modular** single-file shell tool that remains `curl | sh` compatible.
 
@@ -14,6 +14,31 @@ It defines modular function organization for a **monolithic yet modular** single
 **Core idea:** Modularity is achieved through **clear function boundaries, consistent prefixes, and full CIAO documentation** — **not** by splitting the main CLI into multiple shipped files.
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** The file people install stays **one** script; helpers are grouped by prefixes (`out_`, `inst_`, `gs_`, …).
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | `curl \| sh` still works because there is one file. | `./git-sync` |
+| The other role | Domain work lives under `gs_*`, not under `inst_*`. | `gs_main_loop` |
+| Not this file | Command names operators type. | `requirement-shell-cli-interface` |
+
+| Includes | Excludes |
+|----------|----------|
+| Prefix table; single shipped file | Splitting the installable CLI into many runtime files |
+| `gs_*` domain prefix | Putting domain scan inside `inst_*` |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | prefixes |
+| `git-sync sync .` | command | `gs_*` path |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Add a helper | Pick a prefix from the table. Domain Git work uses `gs_`. | edit `./git-sync` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -28,7 +53,7 @@ CIAO-Lite shell CLIs distributed as one-liners **MUST** use:
 | **Documented units** | Every public helper carries a defensive header and safe defaults |
 | **Requirements extract policy** | Durable rules live in `requirement-*.md`; code comments encode intent and Protection Zones |
 
-Optional multi-file layout under `src/` for future authoring **MAY** exist only if a build or pack step still produces **one** installable artifact and this requirement is updated. Until then, `./selfmanaged` remains the single shipped script.
+Optional multi-file layout under `src/` for future authoring **MAY** exist only if a build or pack step still produces **one** installable artifact and this requirement is updated. Until then, `./git-sync` remains the single shipped script.
 
 ### 2.2 Official function prefix table (mandatory)
 
@@ -38,7 +63,7 @@ Optional multi-file layout under `src/` for future authoring **MAY** exist only 
 |--------|----------|---------|-------------------|
 | `out_` | Output system | All user-facing and machine-readable output | `out_text`, `out_info`, `out_success`, `out_json`, `out_die` |
 | `inst_` | Installation & self-management | Install, self-update, self-uninstall, install detect | `inst_perform_install`, `inst_self_update`, `inst_is_installed` |
-| `util_` | General utilities | Reusable helpers (backup, path resolve, storage) | `util_backup`, `util_resolve_storage`, `util_get_install_bin_path` |
+| `util_` | General utilities | Reusable helpers (backup, path resolve, cache folder, persistence folder) | `util_backup`, `util_resolve_storage`, `util_resolve_persistent_storage`, `util_get_install_bin_path` |
 | `app_` | General app CLI surface (product-neutral) | Entry, dispatch, about/help/version presentation | `app_main`, `app_about`, `app_help`, `app_version` |
 | `ver_` | Version comparison | Semantic version handling | `ver_gt`, `ver_check` |
 | `path_` | Shell PATH & environment | PATH manipulation and shell config | `path_add_shell`, `path_add_bashrc` |
@@ -66,7 +91,7 @@ Every non-trivial function **MUST** include a defensive header of this shape (tr
 
 #### 2.3.1 Product-source documentation authority
 
-Optional `ALIGNMENT` / `See` / “fully synchronized with” lines in **product source** (`./selfmanaged`) **MUST** cite only **live** `docs/requirements/requirement-*.md` paths that exist on disk and appear in `docs/requirements/index.md`.
+Optional `ALIGNMENT` / `See` / “fully synchronized with” lines in **product source** (`./git-sync`) **MUST** cite only **live** `docs/requirements/requirement-*.md` paths that exist on disk and appear in `docs/requirements/index.md`.
 
 | Allowed in product source comments | Forbidden in product source comments |
 |------------------------------------|--------------------------------------|
@@ -140,25 +165,26 @@ function_name() {
 
 ### 2.6 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
-| **Product / binary** | `selfmanaged` (`APP_NAME`) |
-| **Single shipped script** | Repo root `./selfmanaged` (~2k lines, `#!/bin/sh`) |
+| **Product / binary** | `git-sync` (`APP_NAME`) |
+| **Single shipped script** | Repo root `./git-sync` (~2k lines, `#!/bin/sh`) |
 | **`src/` directory** | Present but empty — **not** a multi-file runtime layout yet |
-| **Domain prefix `selfmanaged_*`** | **Not used** today (Type 0 lifecycle only; no product domain ops) |
-| **Bootstrap** | Direct execution when `${0##*/}` is `selfmanaged` or `selfmanaged.sh` → `app_main "$@"` |
+| **Domain prefix `gs_*`** | **Used** — `gs_main_loop`, `gs_per_repo` (domain SSOT: `requirement-domain-git-sync`) |
+| **Bootstrap** | Direct execution when `${0##*/}` is `git-sync` or `git-sync.sh` → `app_main "$@"` |
 
 #### Live prefix inventory (authoritative categories)
 
-| Prefix | Live examples in `./selfmanaged` |
+| Prefix | Live examples in `./git-sync` |
 |--------|----------------------------------|
 | `out_` | `out_text`, `out_success`, `out_info`, `out_warn`, `out_error`, `out_die`, `out_plain`, `out_msg_n`, `out_empty_line`, `out_double_line`, `out_json`, `out_json_error` |
 | `inst_` | `inst_perform_install`, `inst_perform_install_prepare_target`, `inst_perform_install_download_with_checksum`, `inst_perform_install_download_without_checksum`, `inst_perform_install_atomic_install`, `inst_maybe_install`, `inst_self_update`, `inst_self_uninstall` (+ determine_bin / confirm_and_remove / cleanup_path), `inst_is_installed`, `inst_get_version` |
 | `ver_` | `ver_gt`, `ver_check` |
 | `path_` | `path_add_bashrc`, `path_add_zshrc`, `path_add_fish`, `path_add_shell` |
-| `util_` | `util_json_escape`, `util_sha256_file`, `util_fetch_remote_version`, `util_get_install_bin_path`, `util_backup`, `util_resolve_storage` (**wired** from `app_main` / `app_about`; SSOT: `requirement-shell-cli-storage.md`), `util_get_current_shell` |
+| `util_` | `util_json_escape`, `util_sha256_file`, `util_fetch_remote_version`, `util_get_install_bin_path`, `util_backup`, `util_preferred_cache_dir`, `util_fallback_cache_dir`, `util_persistent_storage_dir`, `util_resolve_persistent_storage`, `util_resolve_storage` (**wired** from `app_main` / `app_about`; SSOT: `requirement-shell-cli-storage.md`), `util_get_current_shell` |
 | `prompt_` | `prompt_ask`, `prompt_yes_no` |
 | `app_` | `app_about`, `app_version` (dispatcher routes `version` here), `app_help`, `app_main` |
+| `gs_` | `gs_main_loop`, `gs_per_repo` (domain; SSOT: `requirement-domain-git-sync.md`) |
 
 #### Structural notes (implementation status)
 
@@ -171,7 +197,7 @@ function_name() {
 
 #### New function checklist (this project)
 
-When adding a function to `./selfmanaged`:
+When adding a function to `./git-sync`:
 
 1. Choose the correct prefix from §2.2 / this inventory.  
 2. Add the defensive header (full for non-trivial logic).  
@@ -192,6 +218,13 @@ When adding a function to `./selfmanaged`:
 - **CIAO Principle 4 (O) / Principle 20 – Over-protect / Protect Against AI & Human Modification** (https://github.com/cloudgen/ciao): Protection Zones and prefix table defend against AI “cleanup” regressions.
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Do not add a `util_sudo` prefix family unless a dedicated sudo-command requirement is registered. Domain `gs_*` stays normal user privilege.
+
 
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
@@ -226,7 +259,7 @@ When adding a function to `./selfmanaged`:
 
 ## 5. Definition of done (shell modular function design)
 
-A modular-structure change for selfmanaged is **not done** if any of the following fail:
+A modular-structure change for git-sync is **not done** if any of the following fail:
 
 1. Every new function uses an approved prefix from this requirement.  
 2. Critical helpers retain defensive headers and Protection intent.  
@@ -249,10 +282,10 @@ A modular-structure change for selfmanaged is **not done** if any of the followi
 | `docs/requirements/requirement-shell-idempotency.md` | Re-run safety inside ensure helpers |
 | `docs/requirements/requirement-shell-output-requirements.md` | `out_*` ownership |
 | `docs/requirements/index.md` | Registry SSOT |
-| `./selfmanaged` | Implementation under modular design rules |
+| `./git-sync` | Implementation under modular design rules |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 3, 6, 7, 8, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).

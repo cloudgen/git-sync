@@ -1,9 +1,9 @@
 # Product test plan — git-sync
 
-**Product:** git-sync 2.0.0  
+**Product:** git-sync 2.0.1  
 **Ship unit:** `./git-sync`  
 **Suite:** `tests/run.sh`  
-**Updated:** 2026-08-18  
+**Updated:** 2026-09-06  
 
 Status: **have** = green in suite · **todo** = planned · **optional** = gated · **n/a** = not applicable
 
@@ -11,9 +11,9 @@ Status: **have** = green in suite · **todo** = planned · **optional** = gated 
 |-------|--------|-------|------------------------|--------|
 | TP-CLI-01 | `sh -n` syntax + companion digest match | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE · RQ-SHELL-AUTOMATIC-CHECKSUM | have |
 | TP-CLI-02 | version human + JSON | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE · RQ-SHELL-OUTPUT-REQUIREMENTS | have |
-| TP-CLI-03 | help Type 0 + domain `sync` · no CHECKSUM | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE · RQ-DOMAIN-GIT-SYNC · RQ-SHELL-AUTOMATIC-CHECKSUM | have |
+| TP-CLI-03 | help lists `sync` · GS_REMOTE/GS_BRANCH · no CHECKSUM | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE · RQ-DOMAIN-GIT-SYNC · RQ-SHELL-AUTOMATIC-CHECKSUM | have |
 | TP-CLI-04 | help/about JSON purity | `tests/test_cli.sh` | RQ-SHELL-OUTPUT-REQUIREMENTS | have |
-| TP-CLI-05 | about storage fields + isolation | `tests/test_cli.sh` | RQ-SHELL-CLI-STORAGE | have |
+| TP-CLI-05 | about cache folder + persistence folder | `tests/test_cli.sh` | RQ-SHELL-CLI-STORAGE | have |
 | TP-CLI-06 | unknown command fail-closed | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE | have |
 | TP-CLI-07 | quiet suppresses info | `tests/test_cli.sh` | RQ-SHELL-OUTPUT-REQUIREMENTS | have |
 | TP-CLI-08 / TP-U-01 | `env -u HOME` version under set -u | `tests/test_cli.sh` | RQ-SHELL-CLI-INTERFACE | have |
@@ -36,4 +36,4 @@ Status: **have** = green in suite · **todo** = planned · **optional** = gated 
 | TP-ELEV-* | Type 1 elevation | — | — | n/a (Type 0 only) |
 
 **Run:** `sh tests/run.sh`  
-**Last green:** 2026-08-18 — PASS=153 FAIL=0 SKIP=1 (TP-CURL-09 optional)
+**Last green:** 2026-09-06 — PASS=168 FAIL=0 SKIP=1 (TP-CURL-09 optional)

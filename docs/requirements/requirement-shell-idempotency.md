@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for **idempotency (re-run safety)** of state-changing operations in the **POSIX shell CLI** for selfmanaged.
+This requirement is the **project Single Source of Truth** for **idempotency (re-run safety)** of state-changing operations in the **POSIX shell CLI** for git-sync.
 
 It defines re-run safety for ensure-style shell lifecycle commands (install, PATH integration, self-update, self-uninstall, and related helpers). Read-only commands remain outside the “ensure-X” contract except where they must stay safe under repeat invocation.
 
@@ -14,6 +14,31 @@ It defines re-run safety for ensure-style shell lifecycle commands (install, PAT
 **Informal formula:** for ensure-style operation *f* and system state *x*, **f(f(x)) ≈ f(x)** for the **desired outcome** (logs and timestamps may differ).
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** Running install or empty-argv again when the program is already in place succeeds and does not thrash a re-download.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | Second `git-sync` (no args) when installed is “already installed”. | `git-sync` |
+| The other role | `--force` is the deliberate replace. | `git-sync install --force` |
+| Not this file | Domain `sync` of Git folders (reset+pull is not an “already done” skip). | `git-sync sync .` |
+
+| Includes | Excludes |
+|----------|----------|
+| Install / PATH / uninstall no-op when done | Treating `sync` as a no-op because repos exist |
+| Success when already achieved | Failing solely because state exists |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | ensure ops |
+| `git-sync` (no args) | command | already-installed |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Re-run install | If the binary is already there, you get success, not an error. | `git-sync install` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -63,10 +88,10 @@ Force **MUST NOT** be used as a silent way to skip integrity verification.
 
 ### 2.5 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
-| **Product / binary** | `selfmanaged` (`APP_NAME`) |
-| **Implementation file** | Repo root `./selfmanaged` |
+| **Product / binary** | `git-sync` (`APP_NAME`) |
+| **Implementation file** | Repo root `./git-sync` |
 | **Install detect SSOT** | `inst_is_installed` / `inst_get_version` |
 | **Install ensure SSOT** | `inst_perform_install` (+ download/atomic helpers) |
 | **Force reinstall var** | `FORCE_REINSTALL` (default `0`); CLI `--force` must set this per `requirement-shell-cli-interface.md` |
@@ -114,6 +139,13 @@ Force **MUST NOT** be used as a silent way to skip integrity verification.
 
 ---
 
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Re-run safety is for this login’s install paths. Do not add a root-only ensure path on Termux / Git Bash / Windows Command Prompt.
+
+
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
 - **Caution:** Prefer detect-before-create; fail closed on integrity and network when action is required.  
@@ -145,7 +177,7 @@ Force **MUST NOT** be used as a silent way to skip integrity verification.
 
 ## 5. Definition of done (shell idempotency)
 
-A state-changing shell change for selfmanaged is **not done** if any of the following fail:
+A state-changing shell change for git-sync is **not done** if any of the following fail:
 
 1. Second `install` with healthy install and force off exits success without reinstall.  
 2. Second `self-update` when local equals remote and force off exits success without reinstall.  
@@ -167,10 +199,10 @@ A state-changing shell change for selfmanaged is **not done** if any of the foll
 | `docs/requirements/requirement-shell-self-management.md` | Lifecycle commands; integrity + downgrade policy |
 | `docs/requirements/requirement-shell-output-requirements.md` | Messages on no-op / already-done paths |
 | `docs/requirements/index.md` | Registry SSOT |
-| `./selfmanaged` | Implementation under test |
+| `./git-sync` | Implementation under test |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; related `requirement-shell-cli-interface.md`; CIAO Principles 1, 2, 3, 11, 12, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).

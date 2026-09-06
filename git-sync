@@ -11,7 +11,7 @@
 # - requirement-class-software-dev.md        (software-development class + residual stack)
 # - requirement-shell-cli-interface.md
 # - requirement-shell-cli-zero-arguments.md  (Type O empty argv = install-ensure)
-# - requirement-shell-cli-storage.md         (util_resolve_storage + about fields; LM-SHELL-CLI-STORAGE)
+# - requirement-shell-cli-storage.md         (cache folder + persistence folder; about fields)
 # - requirement-domain-git-sync.md           (git-sync domain; subfolder reset+pull)
 # - requirement-shell-idempotency.md
 # - requirement-shell-self-management.md
@@ -39,7 +39,7 @@
 # Project requirements (docs/requirements/ only — never cite templates here):
 # - requirement-shell-cli-interface.md
 # - requirement-shell-cli-zero-arguments.md  (Type O empty argv = install-ensure)
-# - requirement-shell-cli-storage.md         (util_resolve_storage + about fields)
+# - requirement-shell-cli-storage.md         (cache folder + persistence folder; about fields)
 # - requirement-shell-idempotency.md
 # - requirement-shell-self-management.md
 # - requirement-shell-modular-function-design.md
@@ -70,10 +70,10 @@ APP_NAME="git-sync"
 : "${APP_NAME:=git-sync}"
 : "${APP_DESC:=Reset and pull all Git repositories in a folder}"
 : "${SHORT_DESCRIPTION:=${APP_DESC}}"
-: "${DESCRIPTION:=POSIX /bin/sh Type 0 CLI: install, version-check, self-update, self-uninstall, about, plus git-sync of subfolder repos.}"
+: "${DESCRIPTION:=POSIX /bin/sh CLI: install, version-check, self-update, self-uninstall, about, plus reset+pull of subfolder Git repos.}"
 # Product version SSOT (semver). Extractors use: grep '^VERSION="'
-VERSION="2.0.0"
-: "${VERSION:=2.0.0}"
+VERSION="2.0.1"
+: "${VERSION:=2.0.1}"
 
 # Runtime flags (safe defaults)
 : "${QUIET:=0}"
@@ -1003,7 +1003,7 @@ inst_maybe_install() {
 
     local should_install=false
 
-    if [ -t 0 ] && [ -t 1 ]; then
+    if [ "${TTY:-0}" -eq 1 ]; then
         # Use single source of truth for the yes/no prompt
         if prompt_yes_no "Install ${APP_NAME} ${VERSION} now?"; then
             should_install=true
@@ -1261,7 +1261,7 @@ inst_self_uninstall_confirm_and_remove() {
         : "${JSON:=0}"
         : "${QUIET:=0}"
 
-        if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ] || ! [ -t 0 ] || ! [ -t 1 ]; then
+        if [ "${JSON}" -eq 1 ] || [ "${QUIET}" -eq 1 ] || [ "${TTY:-0}" -ne 1 ]; then
             # requirement-shell-interactive-vs-noninteractive.md: destructive ops need --force
             if [ "${JSON}" -eq 1 ]; then
                 out_json_error "Uninstall requires --force in non-interactive mode (refusing to remove ${bin_path})." "confirm_required"
@@ -2019,79 +2019,206 @@ util_backup() {
 }
 
 # =============================================================================
-# util_resolve_storage() - Storage resolver
+# DEFENSIVE STORAGE LOCATION HANDLING - CIAO PRINCIPLE 19
+# !!! NEVER ASSUME STORAGE PATHS (cache folder, persistence folder) !!!
+# Cache preferred MUST be /dev/shm/cache/cache-${APP_NAME}
+# Persistence MUST be ${HOME}/.local/${APP_NAME} — not ${HOME}/.local/bin
+# See requirement-shell-cli-storage.md
+# =============================================================================
+
+# =============================================================================
+# util_preferred_cache_dir() - Preferred cache folder path (class B)
 # =============================================================================
 #
 # GENERAL PURPOSE:
-# Returns the best available volatile storage directory for prompt files.
-# Prefers /dev/shm (fastest, in-memory) → /tmp → fallback to XDG_CACHE_HOME.
-# All paths include ${USERNAME} to isolate per-user storage.
-#
-# Safe Variable Defaults
+# Prints the preferred RAM cache folder: /dev/shm/cache/cache-${APP_NAME}.
+# Does not create it. Capture with $(util_preferred_cache_dir).
 #
 # CIAO PRINCIPLES APPLIED:
-# - Caution: Must work correctly when the same computer is used by multiple
-#   different users (normal user, sudo, root, shared servers, containers).
-# - Intentionality: Never allow one user's files to be readable/writable by
-#   another user. Every directory creation must be ownership-aware.
-# - Anti-fragile: Survive permission conflicts and multi-user environments.
+# - Caution: Path shape only; create is util_resolve_storage.
+# - Intentional: Preferred cache is under sticky …/cache/, not a ram-drive project folder.
+#
+# ALIGNMENT (live requirements only):
+# - requirement-shell-cli-storage.md
+# - requirement-shell-output-requirements.md
+#
+# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
+#
+# Last updated: 2026-08-30
+# =============================================================================
+util_preferred_cache_dir() {
+    : "${APP_NAME:=app}"
+    printf '%s' "/dev/shm/cache/cache-${APP_NAME}"
+}
+
+# =============================================================================
+# util_fallback_cache_dir() - User cache folder path (class B)
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Prints the XDG user cache folder: ${XDG_CACHE_HOME}/cache-${APP_NAME}.
+# Does not create it. Capture with $(util_fallback_cache_dir).
+#
+# ALIGNMENT (live requirements only):
+# - requirement-shell-cli-storage.md
+#
+# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
+#
+# Last updated: 2026-08-30
+# =============================================================================
+util_fallback_cache_dir() {
+    : "${APP_NAME:=app}"
+    : "${HOME:=/tmp}"
+    : "${XDG_CACHE_HOME:=${HOME}/.cache}"
+    printf '%s' "${XDG_CACHE_HOME}/cache-${APP_NAME}"
+}
+
+# =============================================================================
+# util_persistent_storage_dir() - Persistence folder path (class B)
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Prints the persistence folder: ${HOME}/.local/${APP_NAME}.
+# Does not create it. This is durable per-user app data, not USER_BIN.
+#
+# ALIGNMENT (live requirements only):
+# - requirement-shell-cli-storage.md
+#
+# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
+#
+# Last updated: 2026-08-30
+# =============================================================================
+util_persistent_storage_dir() {
+    : "${APP_NAME:=app}"
+    : "${HOME:=/tmp}"
+    printf '%s' "${HOME}/.local/${APP_NAME}"
+}
+
+# =============================================================================
+# util_resolve_persistent_storage() - Create persistence folder (class B)
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Creates ${HOME}/.local/${APP_NAME}, confirms it is writable, prints the path.
+# Fail closed. Must not use ${HOME}/.local/bin (that is USER_BIN).
+#
+# CIAO PRINCIPLES APPLIED:
+# - Caution: Create-before-return; refuse install-bin collision.
+# - Intentional: Persistence folder is distinct from cache folder.
+# - Anti-fragile: Fail closed if mkdir or write fails.
+# - Over-protect: Never treat USER_BIN as persistence.
+#
+# ALIGNMENT (live requirements only):
+# - requirement-shell-cli-storage.md
+# - requirement-shell-output-requirements.md
+#
+# !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
+#
+# ECHO EXCEPTION (class B – function return-via-stdout):
+# echo of the persistence path is a data return for
+# $(util_resolve_persistent_storage) capture, not a product user message.
+#
+# Last updated: 2026-08-30
+# =============================================================================
+util_resolve_persistent_storage() {
+    : "${APP_NAME:=app}"
+    : "${HOME:=/tmp}"
+    _persist=$(util_persistent_storage_dir)
+    case "${_persist}" in
+        */.local/bin|*/.local/bin/)
+            out_die "Persistence folder must not be the install bin directory ${_persist}. Next: use ${HOME}/.local/${APP_NAME}."
+            ;;
+    esac
+    if ! mkdir -p "${_persist}" 2>/dev/null; then
+        out_die "Cannot create persistence folder ${_persist}. Next: check that ${HOME}/.local is writable."
+    fi
+    if [ ! -w "${_persist}" ]; then
+        out_die "Cannot create persistence folder ${_persist}. Next: check that ${HOME}/.local is writable."
+    fi
+    echo "${_persist}"
+    unset _persist
+    return 0
+}
+
+# =============================================================================
+# util_resolve_storage() - Cache folder resolver
+# =============================================================================
+#
+# GENERAL PURPOSE:
+# Returns the best available cache folder for scratch / temps / staging.
+# Prefers /dev/shm/cache/cache-${APP_NAME} → /tmp/cache/cache-${APP_NAME}
+# → ${XDG_CACHE_HOME}/cache-${APP_NAME}. Create-before-return. Fail closed.
+#
+# CIAO PRINCIPLES APPLIED:
+# - Caution: Must work when the same computer is used by multiple logins.
+# - Intentional: Cache folder is not a ram-drive project folder and not persistence.
+# - Anti-fragile: Survive missing /dev/shm or unwritable /tmp.
 #
 # CRITICAL WARNING - MULTI-USER PROBLEM AI FREQUENTLY OVERLOOKS:
-# Many good applications on a computer are run by different users over time
-# (e.g. normal user → sudo → another login account). 
-#
-# AI assistants often simply "add mkdir -p" when solving a storage task without
-# considering ownership and cross-user write privilege. This approach is
-# untested and problematic — it can create directories owned by one user that
-# another user cannot read/write, or allow unintended access between users.
-#
-# That is why we intentionally isolate folders per user (${APP_NAME}-${USERNAME})
-# and why any change to this function must preserve strict per-user isolation.
-# Rewriting this with a generic shared folder is forbidden and has caused
-# permission bugs in the past.
+# Preferred cache MUST be /dev/shm/cache/cache-${APP_NAME} under a sticky
+# …/cache/ parent — NOT /dev/shm/${APP_NAME} or /dev/shm/${APP_NAME}-${USERNAME}.
+# Those look like ram-drive project folders.
 #
 # !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
 # Designed to be reusable in other projects.
 #
 # ECHO EXCEPTION (class B – function return-via-stdout):
-# echo of storage paths is a data return for $(util_resolve_storage) capture,
+# echo of cache paths is a data return for $(util_resolve_storage) capture,
 # not a product user message. Failures use out_die.
 # See requirement-shell-output-requirements.md §2.1.1.
 #
 # Lessons Learned (CIAO Reflection):
 # 2026-07-13: STORAGE_DIR was bare/unset on third fallback (INC-20260713-001 P1).
-# 2026-07-14: Third fallback uses XDG_CACHE_HOME / HOME/.cache / /tmp with
-#             per-user ${APP_NAME}-${USERNAME} isolation under set -u.
+# 2026-07-14: Third fallback uses XDG_CACHE_HOME / HOME/.cache / /tmp.
 # 2026-07-16: Create chosen tier root before echo (fail-closed) for all tiers;
 #             wire from app_main (EFFECTIVE_STORAGE_DIR + TMPDIR). SM-STOR-01.
+# 2026-08-30: Cache folder preferred /dev/shm/cache/cache-${APP_NAME};
+#             persistence folder is a separate resolver.
 #
-# Last reviewed: 2026-07-16
+# Last updated: 2026-08-30
 # SSOT: requirement-shell-cli-storage.md
 # =============================================================================
 util_resolve_storage() {
     # --- Safe Variable Defaults ----
-    # Defensive defaults - never assume globals are set
-    : "${USERNAME:=unknown}"
     : "${APP_NAME:=app}"
     : "${HOME:=/tmp}"
     : "${XDG_CACHE_HOME:=${HOME}/.cache}"
+    : "${STORAGE_DIR:=${XDG_CACHE_HOME}/cache-${APP_NAME}}"
 
-    # Pick first available tier, then create root (all tiers fail-closed)
     _storage_candidate=""
     if [ -d "/dev/shm" ] && [ -w "/dev/shm" ]; then
-        _storage_candidate="/dev/shm/${APP_NAME}-${USERNAME}"
-    elif [ -w "/tmp" ]; then
-        _storage_candidate="/tmp/${APP_NAME}-${USERNAME}"
-    else
-        : "${STORAGE_DIR:=${XDG_CACHE_HOME}/${APP_NAME}-${USERNAME}}"
-        _storage_candidate="${STORAGE_DIR}"
+        if ! mkdir -m 1777 -p /dev/shm/cache 2>/dev/null; then
+            mkdir -p /dev/shm/cache 2>/dev/null
+        fi
+        _pref="/dev/shm/cache/cache-${APP_NAME}"
+        if mkdir -p "${_pref}" 2>/dev/null; then
+            if [ -w "${_pref}" ]; then
+                _storage_candidate="${_pref}"
+            fi
+        fi
     fi
-
-    if ! mkdir -p "${_storage_candidate}" 2>/dev/null; then
-        out_die "Cannot create storage directory ${_storage_candidate}"
+    if [ -z "${_storage_candidate}" ] && [ -w "/tmp" ]; then
+        if ! mkdir -m 1777 -p /tmp/cache 2>/dev/null; then
+            mkdir -p /tmp/cache 2>/dev/null
+        fi
+        _tmpc="/tmp/cache/cache-${APP_NAME}"
+        if mkdir -p "${_tmpc}" 2>/dev/null; then
+            if [ -w "${_tmpc}" ]; then
+                _storage_candidate="${_tmpc}"
+            fi
+        fi
+    fi
+    if [ -z "${_storage_candidate}" ]; then
+        _storage_candidate="${STORAGE_DIR}"
+        if ! mkdir -p "${_storage_candidate}" 2>/dev/null; then
+            out_die "Cannot create cache folder ${_storage_candidate}. Next: set STORAGE_DIR to a writable directory."
+        fi
+        if [ ! -w "${_storage_candidate}" ]; then
+            out_die "Cannot create cache folder ${_storage_candidate}. Next: set STORAGE_DIR to a writable directory."
+        fi
     fi
     echo "${_storage_candidate}"
-    unset _storage_candidate
+    unset _storage_candidate _pref _tmpc
     return 0
 }
 
@@ -2118,10 +2245,10 @@ util_resolve_storage() {
 # which violates the single output system, quiet/json handling, and TTY detection.
 #
 # PRINTF EXCEPTION (class B – function return-via-stdout only):
-# printf '%s' "${default|answer}" returns the chosen value for $(prompt_ask …)
-# capture. It is NOT the prompt UI. User-visible prompt text MUST stay on
-# out_info / out_msg_n. Do not replace those with raw printf + read.
-# See requirement-shell-output-requirements.md §2.1.1.
+# printf '%s' "${default|answer}" returns the chosen value. Callers MUST
+# assign PROMPT_ASK_VALUE in the current shell — MUST NOT `_x=$(prompt_ask …)`.
+# User-visible prompt text MUST stay on out_info / out_msg_n.
+# See requirement-shell-output-requirements.md §2.1.1 · requirement-shell-script-coding.md.
 #
 # Last reviewed: 2026-07-12
 # =============================================================================
@@ -2142,12 +2269,11 @@ prompt_ask() {
         return 0
     fi
 
-    # Must have a real TTY (unless caller explicitly set INTERACTIVE=1)
-    if ! [ -t 0 ] || ! [ -t 1 ]; then
-        if [ "${INTERACTIVE:-0}" -ne 1 ]; then
-            printf '%s' "${default}"
-            return 0
-        fi
+    # Consume TTY SSOT (measured outside functions). INTERACTIVE=1 is a rare override.
+    : "${TTY:=0}"
+    if [ "${TTY}" -ne 1 ] && [ "${INTERACTIVE:-0}" -ne 1 ]; then
+        printf '%s' "${default}"
+        return 0
     fi
 
     # Show current value if present
@@ -2213,8 +2339,9 @@ prompt_yes_no() {
         return 1   # treat as "no" in non-interactive modes
     fi
 
-    # Must be interactive TTY
-    if ! [ -t 0 ] || ! [ -t 1 ]; then
+    # Consume TTY SSOT (measured outside functions).
+    : "${TTY:=0}"
+    if [ "${TTY}" -ne 1 ]; then
         return 1
     fi
 
@@ -2240,7 +2367,8 @@ prompt_yes_no() {
 #
 # GENERAL PURPOSE:
 # Shows detailed diagnostic information: version, installation status (global + local),
-# current shell, TTY/interactive status, user, and helpful next steps.
+# current shell, TTY/interactive status, user, cache folder, persistence folder,
+# and helpful next steps.
 #
 # Fully respects --quiet and --json modes.
 # In JSON mode: outputs exactly ONE clean, machine-readable JSON object.
@@ -2251,7 +2379,7 @@ prompt_yes_no() {
 #
 # !!! DO NOT MODIFY OR SIMPLIFY THIS FUNCTION !!!
 # Designed to be reusable in other CIAO projects.
-# Last reviewed: April 2026
+# Last updated: 2026-08-30
 # =============================================================================
 
 # =============================================================================
@@ -2445,7 +2573,7 @@ app_about() {
     : "${QUIET:=0}"
     : "${APP_NAME:=git-sync}"
     # Version comes from global SSOT (VERSION="…" hard-assign near top); default only if unset
-    : "${VERSION:=2.0.0}"
+    : "${VERSION:=2.0.1}"
     : "${GLOBAL_BIN:=/usr/local/bin}"
     : "${USER_BIN:=${HOME}/.local/bin}"
     : "${SCRIPT_URL:=}"
@@ -2453,11 +2581,17 @@ app_about() {
     : "${HOME:=/tmp}"
     : "${XDG_CACHE_HOME:=${HOME}/.cache}"
 
-    # Storage (requirement-shell-cli-storage): resolve if main has not yet
+    # Storage (requirement-shell-cli-storage): cache folder + persistence folder
     if [ -z "${EFFECTIVE_STORAGE_DIR:-}" ]; then
         EFFECTIVE_STORAGE_DIR=$(util_resolve_storage)
     fi
-    : "${STORAGE_DIR:=${XDG_CACHE_HOME}/${APP_NAME}-${USERNAME}}"
+    if [ -z "${PERSISTENT_STORAGE_DIR:-}" ]; then
+        PERSISTENT_STORAGE_DIR=$(util_resolve_persistent_storage)
+    fi
+    : "${STORAGE_DIR:=${XDG_CACHE_HOME}/cache-${APP_NAME}}"
+    local _cache_preferred _cache_fallback
+    _cache_preferred=$(util_preferred_cache_dir)
+    _cache_fallback=$(util_fallback_cache_dir)
 
     if [ "${JSON}" -eq 1 ]; then
         # === JSON MODE - Clean, machine-friendly output ===
@@ -2478,7 +2612,7 @@ app_about() {
         current_shell=$(util_get_current_shell)
 
         local interactive="false"
-        [ -t 1 ] && interactive="true"
+        [ "${TTY:-0}" -eq 1 ] && interactive="true"
 
         local current_user
         current_user="$(id -un 2>/dev/null || echo "unknown")"
@@ -2493,7 +2627,10 @@ app_about() {
             "interactive" "${interactive}" \
             "user" "${current_user}" \
             "effective_storage" "${EFFECTIVE_STORAGE_DIR}" \
-            "storage_dir" "${STORAGE_DIR}"
+            "storage_dir" "${STORAGE_DIR}" \
+            "cache_preferred" "${_cache_preferred}" \
+            "cache_fallback" "${_cache_fallback}" \
+            "persistence_storage" "${PERSISTENT_STORAGE_DIR}"
         return 0
     fi
 
@@ -2541,7 +2678,7 @@ app_about() {
     if [ "$(id -u)" -eq 0 ]; then
         out_success "Execution context: root (global install path available)"
     else
-        out_info "Execution context: normal user (Type 0 CLI self-management)"
+        out_info "Execution context: normal login (this program’s self-care)"
     fi
 
     out_empty_line
@@ -2551,15 +2688,16 @@ app_about() {
 
     out_info "Current shell:     ${current_shell}"
 
-    if [ -t 1 ]; then
+    if [ "${TTY:-0}" -eq 1 ]; then
         out_info "TTY / Interactive: yes"
     else
         out_info "TTY / Interactive: no (non-interactive / scripted mode)"
     fi
 
     out_empty_line
-    out_info "Storage (effective): ${EFFECTIVE_STORAGE_DIR}"
-    out_info "Storage (fallback config field): ${STORAGE_DIR}"
+    out_info "Cache folder (preferred): ${_cache_preferred}"
+    out_info "Cache folder (fallback):  ${_cache_fallback}"
+    out_info "Persistence storage:      ${PERSISTENT_STORAGE_DIR}"
 
     out_empty_line
     out_info "Useful commands:"
@@ -2575,7 +2713,7 @@ app_about() {
 
 app_version() {
     : "${APP_NAME:=git-sync}"
-    : "${VERSION:=2.0.0}"
+    : "${VERSION:=2.0.1}"
     : "${JSON:=0}"
     if [ "${JSON}" -eq 1 ]; then
         # Same machine contract as historical app_main inline path
@@ -2600,7 +2738,7 @@ app_version() {
 
 app_help() {
     : "${SHORT_DESCRIPTION:=${APP_DESC:-Reset and pull all Git repositories in a folder}}"
-    : "${DESCRIPTION:=POSIX /bin/sh Type 0 CLI: install, version-check, self-update, self-uninstall, about, plus git-sync of subfolder repos.}"
+    : "${DESCRIPTION:=POSIX /bin/sh CLI: install, version-check, self-update, self-uninstall, about, plus reset+pull of subfolder Git repos.}"
 
     if [ "${JSON}" -eq 1 ]; then
         out_json "success" "Help text available in human-readable mode. Run without --json." \
@@ -2627,7 +2765,7 @@ app_help() {
     out_plain "                       Only direct children are scanned (not recursive)"
     out_empty_line
 
-    out_info "Self-Management (Type 0 - any user):"
+    out_info "Self-Management (this program, any login):"
     out_plain "  install              Install ${APP_NAME} (root→global, user→~/.local/bin)"
     out_plain "  version              Show current version"
     out_plain "  about                Show detailed diagnostics"
@@ -2661,6 +2799,10 @@ app_help() {
         out_plain "  SCRIPT_URL           (not set)"
     fi
     out_plain "                       Canonical install channel (override via env; needed for version-check/self-update)"
+    out_plain "  GS_REMOTE            ${GS_REMOTE:-origin}"
+    out_plain "                       Git remote name for domain sync (default origin)"
+    out_plain "  GS_BRANCH            ${GS_BRANCH:-main}"
+    out_plain "                       Git branch name for domain sync (default main)"
     out_empty_line
 }
 
@@ -2717,13 +2859,13 @@ app_main() {
     : "${FORCE:=0}"
     : "${FORCE_REINSTALL:=0}"
 
-    # Effective scratch/cache root for this run (requirement-shell-cli-storage).
-    : "${USERNAME:=unknown}"
+    # Cache folder + persistence folder for this run (requirement-shell-cli-storage).
     : "${HOME:=/tmp}"
     : "${XDG_CACHE_HOME:=${HOME}/.cache}"
-    : "${STORAGE_DIR:=${XDG_CACHE_HOME}/${APP_NAME}-${USERNAME}}"
+    : "${STORAGE_DIR:=${XDG_CACHE_HOME}/cache-${APP_NAME}}"
     EFFECTIVE_STORAGE_DIR=$(util_resolve_storage)
-    export EFFECTIVE_STORAGE_DIR STORAGE_DIR
+    PERSISTENT_STORAGE_DIR=$(util_resolve_persistent_storage)
+    export EFFECTIVE_STORAGE_DIR PERSISTENT_STORAGE_DIR STORAGE_DIR
     export TMPDIR="${EFFECTIVE_STORAGE_DIR}"
 
     # === ZERO-ARG = Type O install-ensure (curl | sh contract) ===

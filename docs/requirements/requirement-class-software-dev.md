@@ -1,5 +1,5 @@
 **file**: docs/requirements/requirement-class-software-dev.md  
-**Status**: Active (Version 1.0.0 – selfmanaged class law + residual stack)  
+**Status**: Active (Version 1.0.0 – git-sync class law + residual stack)  
 **Area**: class  
 **Key**: `requirement-class-software-dev`  
 **Philosophy**: CIAO **v2.10.2** / CIAO-Lite (Caution • Intentional • Anti-fragile • Over-engineered / Over-protect)
@@ -11,6 +11,31 @@ Declare this workspace as a **software-development** project class and hold the 
 This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycle, checksum, output, or storage tables (those stay on peer shell requirements).
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** This folder is **software-development** work: you ship a POSIX shell program people can install (`./git-sync`), not a blank workshop and not a server-maintenance allowlist.
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | Maintainers and operators of **git-sync**. | `git-sync version` |
+| The other role | Peer requirement files own lifecycle, output, storage, and domain scan. | `requirement-domain-git-sync` |
+| Not this file | A genesis empty kit, or a host allowlist project. | genesis-template |
+
+| Includes | Excludes |
+|----------|----------|
+| Primary language `posix-sh`; no package lockfile | Full command tables (peer shell REQs) |
+| Residual stack facts not owned elsewhere | Dest approver / dest fence machines (none on this product) |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | live identity |
+| `docs/requirements/index.md` | registry | Active law list |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| Check the stack | Language and test runner are declared here. Domain and install rules live on peers. | `sh tests/run.sh` |
+
 
 ## 2. Core Rules (Mandatory)
 
@@ -65,9 +90,9 @@ This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycl
 
 ### 2.7 Implementation Notes (this project)
 
-| Field | Value (selfmanaged) |
+| Field | Value (git-sync) |
 |-------|---------------------|
-| **Project display name** | `selfmanaged` (product root `README.md` H1 SSOT) |
+| **Project display name** | `git-sync` (product root `README.md` H1 SSOT) |
 | **Project class** | software-development |
 | **Class requirement basename** | `requirement-class-software-dev.md` |
 | **Primary language(s)** | `posix-sh` (`/bin/sh`) |
@@ -82,9 +107,9 @@ This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycl
 | **Linter/formatter** | none as project law (shellcheck optional for maintainers, not required gate) |
 | **Primary runtime / OS family** | POSIX Linux (and compatible UNIX where `/bin/sh` + coreutils/`sha256sum`/`mktemp` exist) |
 | **Architectures supported** | any arch with a POSIX sh and the external tools the script invokes (no arch-specific binary) |
-| **Git surface** | used for product publish (`github.com/cloudgen/selfmanaged`) |
-| **Ship unit / install** | yes — repo root `./selfmanaged` + companion `selfmanaged.sha256`; Type 0 online install (peer shell REQs) |
-| **Product version SSOT** | `VERSION="…"` hard-assign in `./selfmanaged` (currently `1.2.1`) |
+| **Git surface** | used for product publish (`github.com/cloudgen/git-sync`) |
+| **Ship unit / install** | yes — repo root `./git-sync` + companion `git-sync.sha256`; Type 0 online install (peer shell REQs) |
+| **Product version SSOT** | `VERSION="…"` hard-assign in `./git-sync` (currently `2.0.1`) |
 
 **Residual ownership table:**
 
@@ -98,13 +123,23 @@ This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycl
 | Self-management lifecycle | `requirement-shell-self-management` | Do not duplicate |
 | Automatic companion digest | `requirement-shell-automatic-checksum` | Do not duplicate |
 | Output SSOT (`out_*`) | `requirement-shell-output-requirements` | Do not duplicate |
-| Scratch/cache storage resolve | `requirement-shell-cli-storage` | Do not duplicate |
+| Cache folder + persistence folder | `requirement-shell-cli-storage` | Do not duplicate |
 | Idempotency / re-run safety | `requirement-shell-idempotency` | Do not duplicate |
 | Interactive vs non-interactive | `requirement-shell-interactive-vs-noninteractive` | Do not duplicate |
 | Modular prefixes / single-file layout | `requirement-shell-modular-function-design` | Do not duplicate |
-| Domain features / help / about extras | *none* (bootstrap — no domain SSOT) | Add `requirement-domain-*` only when domain ops exist |
+| POSIX `/bin/sh` coding style (specialize-in) | `requirement-shell-script-coding` | Without it, portable lessons arrive raw |
+| Domain features / help / about extras | `requirement-domain-git-sync` | One Active domain SSOT |
+| Actor / role / subject / approver | **considered — no dest approver** | No dest review machine; Approver = None |
+| Dest fence conditions | **considered — no dest fence conditions** | No dest approve/reject; no `fence-test` |
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Stack residual: this product is **normal user privilege** for domain and typical install. Admin privilege is unused except an already-root global install of **this** binary.
+
 
 ## 3. Why This Requirement Exists (Direct CIAO Alignment)
 
@@ -164,10 +199,12 @@ This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycl
 | `requirement-shell-self-management` | Lifecycle |
 | `requirement-shell-automatic-checksum` | Companion integrity |
 | `requirement-shell-output-requirements` | `out_*` SSOT |
-| `requirement-shell-cli-storage` | Scratch/cache resolve |
+| `requirement-shell-cli-storage` | Cache folder + persistence folder |
 | `requirement-shell-idempotency` | Re-run safety |
 | `requirement-shell-interactive-vs-noninteractive` | Mode policy |
 | `requirement-shell-modular-function-design` | Prefixes / single-file modularity |
+| `requirement-shell-script-coding` | POSIX `/bin/sh` coding style (specialize-in) |
+| `requirement-domain-git-sync` | Domain `sync` |
 | `docs/requirements/index.md` | Registry SSOT |
 
 ---
@@ -176,10 +213,10 @@ This file is **class law + residual SSOT**, not a second copy of Type 0 lifecycl
 
 | Date | Status | Note |
 |------|--------|------|
-| 2026-07-19 | Active | Specialized class law for selfmanaged (review fix F1) |
+| 2026-07-19 | Active | Specialized class law for git-sync (review fix F1) |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 4, 5, 20, 21 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).

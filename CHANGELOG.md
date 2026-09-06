@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.1] - 2026-09-06
+
+### Changed
+- Product README follows the operator outline (Quick Installation, Examples, Platform Compatibility, Last Update) and leads with people-and-folders wording
+- Requirements retargeted to **git-sync** identity (channel, ship unit, owners); every Active file has **§1.1 Human-facing** and **Under command line for normal user only**
+- `about` / prompts / uninstall confirm **consume** the entry-time `TTY` flag (no live `[ -t` inside helpers)
+- Help lists domain env `GS_REMOTE` / `GS_BRANCH`
+- Cache folder + persistence folder remain the two storage classes (`about` labels)
+
+### Added
+- `requirement-shell-script-coding` (`RQ-SHELL-SCRIPT-CODING`) — POSIX `/bin/sh` coding-style product law (specialize-in home)
+- Dual mention of domain `sync` on the CLI-interface requirement and the domain SSOT
+
+### Fixed
+- Dead `docs/ShellParser.skill` link removed from product README (file deleted)
+
 ## [2.0.0] - 2026-08-18
 
 ### Changed

@@ -63,6 +63,8 @@ run_test_cli() {
     assert_contains "help lists REPO_USER" "$_out" "REPO_USER"
     assert_contains "help lists REPO_NAME" "$_out" "REPO_NAME"
     assert_contains "help lists SCRIPT_URL" "$_out" "SCRIPT_URL"
+    assert_contains "TP-CLI-03 help lists GS_REMOTE (domain)" "$_out" "GS_REMOTE"
+    assert_contains "TP-CLI-03 help lists GS_BRANCH (domain)" "$_out" "GS_BRANCH"
     assert_not_contains "help must not list CHECKSUM" "$_out" "CHECKSUM"
 
     # --- help (json): short object, not full prose ---
@@ -72,26 +74,45 @@ run_test_cli() {
     assert_contains "help --json type success" "$_out" '"type":"success"'
     assert_contains "help --json command help" "$_out" '"command":"help"'
 
-    # --- about (json): no CHECKSUM field; storage resolve fields ---
+    # --- about (json): no CHECKSUM field; cache folder + persistence folder ---
     _out=$(sh "${SCRIPT}" --json about 2>/dev/null)
     _ec=$?
     assert_eq "about --json exit 0" 0 "$_ec"
     assert_contains "about --json type" "$_out" '"type":"about"'
     assert_contains "about --json app" "$_out" '"app":"git-sync"'
     assert_not_contains "about --json must not include CHECKSUM" "$_out" "CHECKSUM"
-    assert_contains "about --json effective_storage" "$_out" '"effective_storage"'
-    assert_contains "about --json storage_dir" "$_out" '"storage_dir"'
-    assert_contains "about --json storage includes app name" "$_out" "${APP_NAME:-git-sync}"
+    assert_contains "TP-CLI-05 about --json cache_preferred" "$_out" '"cache_preferred"'
+    assert_contains "TP-CLI-05 about --json cache_fallback" "$_out" '"cache_fallback"'
+    assert_contains "TP-CLI-05 about --json persistence_storage" "$_out" '"persistence_storage"'
+    assert_contains "TP-CLI-05 about --json effective_storage" "$_out" '"effective_storage"'
+    assert_contains "TP-CLI-05 about --json storage_dir" "$_out" '"storage_dir"'
+    assert_contains "TP-CLI-05 cache_preferred path shape" "$_out" "/dev/shm/cache/cache-${APP_NAME:-git-sync}"
+    assert_contains "TP-CLI-05 cache_fallback includes cache-app" "$_out" "cache-${APP_NAME:-git-sync}"
+    assert_contains "TP-CLI-05 persistence_storage path shape" "$_out" ".local/${APP_NAME:-git-sync}"
 
-    # --- storage resolve isolation (EFFECTIVE_STORAGE_DIR via util_resolve_storage) ---
+    _human=$(sh "${SCRIPT}" about 2>/dev/null)
+    assert_contains "TP-CLI-05 human Cache folder (preferred)" "$_human" "Cache folder (preferred)"
+    assert_contains "TP-CLI-05 human Cache folder (fallback)" "$_human" "Cache folder (fallback)"
+    assert_contains "TP-CLI-05 human Persistence storage" "$_human" "Persistence storage"
+    assert_not_contains "TP-CLI-05 human must not say Storage (effective)" "$_human" "Storage (effective)"
+    assert_not_contains "TP-CLI-05 human must not say Storage (fallback)" "$_human" "Storage (fallback)"
+
+    # --- storage resolve isolation (cache folder + persistence folder) ---
     ci_isolated_env 2>/dev/null || true
     if [ -n "${CI_HOME:-}" ]; then
         _out=$(HOME="${CI_HOME}" USER_BIN="${CI_USER_BIN:-${CI_HOME}/.local/bin}" \
             sh "${SCRIPT}" --json about 2>/dev/null)
-        assert_contains "isolated about effective_storage has app" "$_out" "${APP_NAME:-git-sync}"
+        assert_contains "isolated about cache_preferred has app" "$_out" "${APP_NAME:-git-sync}"
         case "$_out" in
-            *'"effective_storage":"'*"${APP_NAME:-git-sync}"*) t_pass "effective_storage path contains ${APP_NAME:-git-sync}" ;;
-            *) t_fail "effective_storage missing app isolation in: $_out" ;;
+            *'"cache_preferred":"'*"/dev/shm/cache/cache-${APP_NAME:-git-sync}"*) \
+                t_pass "cache_preferred is /dev/shm/cache/cache-${APP_NAME:-git-sync}" ;;
+            *) t_fail "cache_preferred missing preferred cache shape in: $_out" ;;
+        esac
+        assert_contains "isolated about persistence_storage present" "$_out" '"persistence_storage"'
+        case "$_out" in
+            *'"persistence_storage":"'*"${CI_HOME}/.local/${APP_NAME:-git-sync}"*) \
+                t_pass "persistence_storage is ${CI_HOME}/.local/${APP_NAME:-git-sync}" ;;
+            *) t_fail "persistence_storage missing HOME/.local/app in: $_out" ;;
         esac
         assert_contains "storage_dir field present under isolation" "$_out" '"storage_dir"'
         _custom="${CI_HOME}/custom-storage-root"
@@ -105,11 +126,15 @@ run_test_cli() {
         else
             t_fail "effective_storage missing or not a directory: '${_eff:-empty}'"
         fi
-        _who=$(id -un 2>/dev/null || echo "unknown")
-        case "$_out" in
-            *'"effective_storage":"'*"${_who}"*|*'"effective_storage":"'*"unknown"*) \
-                t_pass "effective_storage includes user segment" ;;
-            *) t_fail "effective_storage missing user segment for '${_who}': $_out" ;;
+        _persist=$(printf '%s' "$_out" | sed -n 's/.*"persistence_storage":"\([^"]*\)".*/\1/p' | head -n1)
+        if [ -n "$_persist" ] && [ -d "$_persist" ]; then
+            t_pass "persistence folder exists after resolve"
+        else
+            t_fail "persistence folder missing or not a directory: '${_persist:-empty}'"
+        fi
+        case "${_persist}" in
+            */.local/bin|*/.local/bin/) t_fail "persistence folder must not be USER_BIN: ${_persist}" ;;
+            *) t_pass "persistence folder is not USER_BIN" ;;
         esac
         ci_cleanup_env 2>/dev/null || true
     else
@@ -120,6 +145,12 @@ run_test_cli() {
             t_pass "effective_storage directory exists after resolve"
         else
             t_fail "effective_storage missing or not a directory: '${_eff:-empty}'"
+        fi
+        _persist=$(printf '%s' "$_out" | sed -n 's/.*"persistence_storage":"\([^"]*\)".*/\1/p' | head -n1)
+        if [ -n "$_persist" ] && [ -d "$_persist" ]; then
+            t_pass "persistence folder exists after resolve"
+        else
+            t_fail "persistence folder missing or not a directory: '${_persist:-empty}'"
         fi
     fi
 

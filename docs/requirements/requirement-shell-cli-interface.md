@@ -4,7 +4,7 @@
 
 ## 1. Purpose
 
-This requirement is the **project Single Source of Truth** for the **POSIX shell CLI interface** of the selfmanaged tool: command surface, privilege typing, global flags, dispatcher behavior, output modes, and interactive vs non-interactive rules.
+This requirement is the **project Single Source of Truth** for the **POSIX shell CLI interface** of the git-sync tool: command surface, privilege typing, global flags, dispatcher behavior, output modes, and interactive vs non-interactive rules.
 
 It defines a **Type 0–centric self-managed shell CLI** (install / update / uninstall of the tool itself). It does **not** invent Type 1 host-bootstrap or Type 2 system-user app-ops commands unless a future requirement adds them.
 
@@ -12,6 +12,32 @@ It defines a **Type 0–centric self-managed shell CLI** (install / update / uni
 **Out of scope (own requirements when specialized):** Online-install checksum mechanics detail, self-management safety beyond the command surface, shell coding style, full output-function catalog (cited, not re-owned).
 
 ---
+
+### 1.1 Human-facing
+
+**In one sentence:** You type `git-sync` plus a command (`sync`, `help`, `version`, `self-update`, …) and optional flags (`--json`, `--quiet`).
+
+| Box | Meaning | Example |
+|-----|---------|---------|
+| You / this login | You run the program as yourself. Domain `sync` does not need root. | `git-sync sync .` |
+| The other role | Empty-argv install-ensure and lifecycle verbs place/remove **this** program. | `git-sync` with no args |
+| Not this file | Git scan rules; output function catalog; checksum algorithm. | `requirement-domain-git-sync` |
+
+| Includes | Excludes |
+|----------|----------|
+| Command table, flags, unknown-command fail | Nested repo discovery |
+| Dual mention of `sync` here **and** on the domain file | Treating help text as the second mention |
+
+| Surface | What you open | What for |
+|---------|---------------|----------|
+| `./git-sync` | ship unit | dispatcher |
+| `git-sync help` | command | listed verbs |
+
+| You do… | What it means | What you type |
+|---------|---------------|---------------|
+| See commands | Help lists domain `sync` apart from install/update/remove of this program. | `git-sync help` |
+| Sync children | Direct `.git` children of the folder you name. | `git-sync sync ~/projects` |
+
 
 ## 2. Core Rules / Requirements (Mandatory)
 
@@ -76,16 +102,16 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 
 ### 2.6 Implementation Notes (this project)
 
-| Item | Value for selfmanaged |
+| Item | Value for git-sync |
 |------|------------------------|
-| **Product / binary name** | `selfmanaged` (`APP_NAME`, default `selfmanaged`) |
-| **Primary executable** | Repo root `./selfmanaged` (POSIX `/bin/sh`, single-file for `curl \| sh`) |
+| **Product / binary name** | `git-sync` (`APP_NAME`, default `git-sync`) |
+| **Primary executable** | Repo root `./git-sync` (POSIX `/bin/sh`, single-file for `curl \| sh`) |
 | **Dispatcher** | `app_main` (always invoked at end of script: `app_main "$@"` — no `${0##*/}` / APP_NAME basename gate; required for `curl \| sh`) |
 | **Output SSOT** | `out_text` + wrappers (`out_info`, `out_success`, `out_warn`, `out_error`, `out_die`, `out_plain`, `out_json`, …) |
-| **Version SSOT** | `VERSION` default `1.2.1` (script header / config block: `VERSION="1.2.1"`) |
+| **Version SSOT** | `VERSION` default `2.0.1` (script header / config block: `VERSION="2.0.1"`) |
 | **Install paths** | Global: `GLOBAL_BIN` default `/usr/local/bin`; User: `USER_BIN` default `${HOME}/.local/bin` |
-| **Remote channel env (help surface)** | `REPO_USER` / `REPO_NAME` (defaults `cloudgen` / `selfmanaged`); `SCRIPT_URL` composed default `https://raw.githubusercontent.com/${REPO_USER}/${REPO_NAME}/main/${APP_NAME}` (literal product default: `https://raw.githubusercontent.com/cloudgen/selfmanaged/main/selfmanaged`; override via env). **`help` / `about` MUST list these operator channel vars as designed — MUST NOT list `CHECKSUM`** (install-path runtime pin only; see `requirement-shell-automatic-checksum.md`) |
-| **Type 1 / Type 2 commands** | **None** on current surface — this tool is CLI lifecycle only |
+| **Remote channel env (help surface)** | `REPO_USER` / `REPO_NAME` (defaults `cloudgen` / `git-sync`); `SCRIPT_URL` composed default `https://raw.githubusercontent.com/${REPO_USER}/${REPO_NAME}/main/${APP_NAME}` (literal product default: `https://raw.githubusercontent.com/cloudgen/git-sync/main/git-sync`; override via env). **`help` / `about` MUST list these operator channel vars as designed — MUST NOT list `CHECKSUM`** (install-path runtime pin only; see `requirement-shell-automatic-checksum.md`) |
+| **Type 1 / Type 2 commands** | **None** — domain `sync` is **normal user privilege** (Type 0) |
 | **Dedicated system user** | **Not required** for Type 0 CLI self-management |
 
 #### Supported commands (normative for this project)
@@ -95,11 +121,12 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 | *(no args — empty argv)* | Type 0 | `app_main` → `inst_maybe_install` / `inst_perform_install` | **Type O install-ensure** (not Type N help): not-installed / local / global; never help; see `requirement-shell-cli-zero-arguments.md` |
 | `install` | Type 0 | `inst_perform_install` | Install binary for current privilege (root→global, user→local); idempotent unless force reinstall |
 | `version` | Type 0 | `app_main` / `app_version` | Print local version; JSON object when `--json` |
-| `about` | Type 0 | `app_about` | Diagnostics: install presence, global/local paths, user, shell, TTY; JSON when `--json`; **no `CHECKSUM` field** |
+| `about` | Type 0 | `app_about` | Diagnostics: install presence, global/local paths, user, shell, TTY, **cache folder** + **persistence folder**; JSON when `--json`; **no `CHECKSUM` field** |
 | `version-check` | Type 0 | `ver_check` | Compare local vs remote `VERSION` from `SCRIPT_URL`; fail clearly if URL unset/unreachable |
 | `self-update` | Type 0 | `inst_self_update` | Fetch remote version; reinstall when policy allows; reuse install primitives |
 | `self-uninstall` | Type 0 | `inst_self_uninstall` | Remove managed binary; PATH cleanup only if `~/.local/bin` empty (user installs) |
 | `help` | Type 0 | `app_help` | Full usage in human mode; short JSON note in JSON mode; Environment lists channel vars only — **not** `CHECKSUM` |
+| `sync [START_DIR]` | Type 0 | `gs_main_loop` / `gs_per_repo` | Domain: reset+pull **direct** `.git` children of `START_DIR` (default `.`). Topic-owner **RQ-DOMAIN-GIT-SYNC**. Sample: `git-sync sync .` |
 
 #### Global flags (normative wiring for this project)
 
@@ -112,7 +139,7 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 
 #### Dispatcher acceptance criteria (this project)
 
-1. Unknown token after flag parse → `out_die` with pointer to `selfmanaged help`.  
+1. Unknown token after flag parse → `out_die` with pointer to `git-sync help`.  
 2. Zero-arg → install-ensure: not installed → install; already installed (local or global) → already-installed success (not help); failures non-zero.  
 3. Command routing table in `app_main` **must** include every row in the command table above.  
 4. Help text **must** stay aligned with that table (no orphan commands, no listed-but-unrouted commands).  
@@ -122,7 +149,7 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 
 - Type 1: `prerequisites`, `create-user`, Docker host install, etc.  
 - Type 2: app `start`/`stop`/`configure` under a system user  
-- Domain product subcommands unrelated to CLI lifecycle  
+- Domain scan/reset/pull semantics (owned by `requirement-domain-git-sync` — dual mention of `sync` only here)  
 
 ### 2.7 Why This Requirement Exists (Direct CIAO Alignment)
 
@@ -136,6 +163,13 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 - **CIAO Principle 4 (O) / Principle 20 – Over-protect / Protect Against AI & Human Modification** (https://github.com/cloudgen/ciao): Protection Rule below blocks privilege and UX regressions.
 
 ---
+
+## Under command line for normal user only
+
+When this program runs on Termux, Git Bash, Windows Command Prompt, or the same class: **admin privilege** and **dedicated system user privilege** are unused. Do not implement in-tool `sudo`, wrap Linux `apt`/`dnf`, create a dedicated system user, or recommend `sudo curl | sh`. Git Bash and Windows Command Prompt must not invoke Termux `pkg`.
+
+**This requirement:** Command table stays **normal user privilege**. Do not add admin or dedicated-system-user verbs on Termux / Git Bash / Windows Command Prompt. Do not recommend `sudo curl | sh` on that class.
+
 
 ## 3. Design Principles (CIAO / CIAO-Lite)
 
@@ -168,7 +202,7 @@ In JSON mode, help **MUST NOT** dump long human text; return a short structured 
 
 ## 5. Definition of done (CLI interface)
 
-This requirement is satisfied for the selfmanaged shell CLI when all of the following hold:
+This requirement is satisfied for the git-sync shell CLI when all of the following hold:
 
 1. Every command in §2.6 is routed and documented.  
 2. Global flags in §2.6 are parsed and honored.  
@@ -189,12 +223,13 @@ This requirement is satisfied for the selfmanaged shell CLI when all of the foll
 | `docs/requirements/requirement-shell-interactive-vs-noninteractive.md` | TTY / automation mode behavior |
 | `docs/requirements/requirement-shell-cli-zero-arguments.md` | Empty argv install-ensure (not installed / local / global) |
 | `docs/requirements/requirement-shell-idempotency.md` | Re-run safety for ensure ops |
-| `docs/requirements/requirement-shell-modular-function-design.md` | Prefix ownership (`app_`, `inst_`, `out_*`) |
+| `docs/requirements/requirement-shell-modular-function-design.md` | Prefix ownership (`app_`, `inst_`, `out_*`, `gs_*`) |
+| `docs/requirements/requirement-domain-git-sync.md` | Domain `sync` topic-owner (dual mention) |
 | `docs/requirements/index.md` | Registry SSOT |
-| `./selfmanaged` | Implementation under test |
+| `./git-sync` | Implementation under test |
 
 ---
 
-**Last Updated**: 2026-07-19  
-**Owner**: selfmanaged project maintainers  
+**Last Updated**: 2026-09-06  
+**Owner**: git-sync project maintainers  
 **Alignment**: Registry `docs/requirements/index.md`; CIAO Principles 1, 2, 3, 5, 6, 10, 16, 4, 20 (v2.10.2) (https://github.com/cloudgen/ciao); CIAO-Lite (https://github.com/cloudgen/ciao-lite).
